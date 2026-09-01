@@ -23,7 +23,7 @@ if (session_status() === PHP_SESSION_NONE) {
 // --- 2. DATABASE CONNECTION (Using PDO for SQL Injection Prevention) ---
 function getDBConnection() {
     $host = "localhost";
-    $db_name = "payment_tracker";
+    $db_name = "payment_db";
     $username = "root";
     $password = "";
     

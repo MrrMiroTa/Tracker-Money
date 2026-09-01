@@ -21,7 +21,7 @@ if (empty($_SESSION['user_id'])) {
 }
 
 $host = "localhost";
-$db_name = "payment_tracker";
+$db_name = "payment_db";
 $admin_user = "root";
 $admin_pass = "";
 

@@ -10,7 +10,7 @@
 // --- ១. ការកំណត់ព័ត៌មានសម្ងាត់ Database (Database Credentials) ---
 define('DB_HOST', 'localhost');
 define('DB_PORT', '3306');
-define('DB_NAME', 'payment_tracker');
+define('DB_NAME', 'payment_db');
 
 // គោលការណ៍សិទ្ធិអប្បបរមា (Least Privilege)៖ ក្នុងសង្វាក់ផលិតកម្ម (Production) 
 // ត្រូវជៀសវាងការប្រើប្រាស់គណនី 'root'។ គួរបង្កើតគណនីដែលមានសិទ្ធិត្រឹមកម្រិតចាំបាច់។
