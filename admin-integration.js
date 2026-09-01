@@ -1,18 +1,19 @@
 /**
- * admin-integration-v3.js - Frontend API Integration with Transaction Metrics and Pagination
+ * admin-integration-v4.js - Frontend API Integration with Transaction Metrics, Pagination & Date Filtering
  * Part of the Khmer Payment Tracker and Financial Management System
  * 
  * This script connects your frontend UI with the secure backend APIs (api-v2.php & api-transactions.php).
- * Handles user authentication, admin promotion approvals, real-time metrics, paginated transactions,
+ * Handles user authentication, admin promotion approvals, real-time metrics, paginated & filtered transactions,
  * and secure soft deletion.
  */
 
 const API_BASE_URL = 'api-v2.php';
-const API_TRANSACTIONS_URL = 'api-transactions-v4.php'; // ប្រើប្រាស់ API v4 ថ្មីដែលប្តូរឈ្មោះរួច
+const API_TRANSACTIONS_URL = 'api-transactions.php'; // Map to api-transactions.php on user localhost
 
-// រក្សាទុកស្ថានភាពបច្ចុប្បន្ននៃតារាងប្រតិបត្តិការ (Pagination State)
+// รក្សាទុកស្ថានភាពបច្ចុប្បន្ននៃតារាងប្រតិបត្តិការ (Pagination & Filter State)
 let currentTxPage = 1;
-let txLimitPerPage = 5; // លំនាំដើម ៥ ប្រតិបត្តិការក្នុងមួយទំព័រដើម្បីឱ្យតារាងស្អាតបាត
+let txLimitPerPage = 5; // លំនាំដើម ៥ ប្រតិបត្តិការក្នុងមួយទំព័រ
+let currentSearchDate = ''; // រក្សាទុកកាលបរិច្ឆេទតម្រង
 
 /**
  * Helper function to handle standard fetch requests with JSON
@@ -190,26 +191,37 @@ async function updateDashboardMetricsUI() {
 }
 
 /**
- * ទាញយក និងបង្ហាញតារាងប្រតិបត្តិការជាមួយប្រព័ន្ធបែងចែកទំព័រ (Paginated Transactions Table)
+ * ទាញយក និងបង្ហាញតារាងប្រតិបត្តិការជាមួយប្រព័ន្ធបែងចែកទំព័រ និងការច្រោះតាមកាលបរិច្ឆេទ (Paginated & Filtered Transactions Table)
  */
-async function loadTransactionsTable(page = 1, limit = 5) {
+async function loadTransactionsTable(page = 1, limit = 5, searchDate = '') {
     const tableBody = document.getElementById('transaction-table-body');
     if (!tableBody) return;
 
     currentTxPage = page;
     txLimitPerPage = limit;
+    currentSearchDate = searchDate;
 
     tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">កំពុងទាញយកទិន្នន័យប្រតិបត្តិការ...</td></tr>';
 
     try {
-        const response = await fetch(`${API_TRANSACTIONS_URL}?page=${page}&limit=${limit}`);
+        // បង្កើត URL ជាមួយប៉ារ៉ាម៉ែត្រទំព័រ ចំនួនកំណត់ និងតម្រងថ្ងៃខែ
+        let url = `${API_TRANSACTIONS_URL}?page=${page}&limit=${limit}`;
+        if (searchDate) {
+            url += `&date=${encodeURIComponent(searchDate)}`;
+        }
+
+        const response = await fetch(url);
         const result = await response.json();
 
         if (result.status === 'success') {
             tableBody.innerHTML = ''; // សម្អាតតារាងចាស់
 
             if (result.data.length === 0) {
-                tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; color: #6b7280;">មិនទាន់មានប្រតិបត្តិការនៅឡើយទេ។</td></tr>`;
+                let emptyMsg = searchDate 
+                    ? `មិនមានប្រតិបត្តិការណាមួយក្នុងថ្ងៃទី <strong>${searchDate}</strong> នេះទេ។`
+                    : "មិនទាន់មានប្រតិបត្តិការនៅឡើយទេ។";
+                
+                tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; color: #6b7280;">${emptyMsg}</td></tr>`;
                 renderPaginationControls({ total_pages: 0, current_page: 0 });
                 return;
             }
@@ -286,7 +298,7 @@ function renderPaginationControls(pagination) {
     const infoSpan = document.createElement('span');
     infoSpan.style.fontSize = '0.9rem';
     infoSpan.style.color = '#4b5563';
-    infoSpan.innerText = `ទំព័រទី ${current_page} នៃ ${total_pages} (សរុប ${total_records} ប្រតិបត្តិការ)`;
+    infoSpan.innerHTML = `ទំព័រទី ${current_page} នៃ ${total_pages} (សរុប ${total_records} ប្រតិបត្តិការ)`;
     container.appendChild(infoSpan);
 
     // ២. បង្កើតប៊ូតុងផ្លាស់ប្តូរទំព័រ (Buttons Wrapper)
@@ -299,7 +311,7 @@ function renderPaginationControls(pagination) {
     prevBtn.innerText = '« មុន';
     stylePaginationButton(prevBtn, current_page === 1);
     if (current_page > 1) {
-        prevBtn.addEventListener('click', () => loadTransactionsTable(current_page - 1, txLimitPerPage));
+        prevBtn.addEventListener('click', () => loadTransactionsTable(current_page - 1, txLimitPerPage, currentSearchDate));
     }
     btnWrapper.appendChild(prevBtn);
 
@@ -308,7 +320,7 @@ function renderPaginationControls(pagination) {
         const pageBtn = document.createElement('button');
         pageBtn.innerText = i;
         stylePaginationButton(pageBtn, false, i === current_page);
-        pageBtn.addEventListener('click', () => loadTransactionsTable(i, txLimitPerPage));
+        pageBtn.addEventListener('click', () => loadTransactionsTable(i, txLimitPerPage, currentSearchDate));
         btnWrapper.appendChild(pageBtn);
     }
 
@@ -317,7 +329,7 @@ function renderPaginationControls(pagination) {
     nextBtn.innerText = 'បន្ទាប់ »';
     stylePaginationButton(nextBtn, current_page === total_pages);
     if (current_page < total_pages) {
-        nextBtn.addEventListener('click', () => loadTransactionsTable(current_page + 1, txLimitPerPage));
+        nextBtn.addEventListener('click', () => loadTransactionsTable(current_page + 1, txLimitPerPage, currentSearchDate));
     }
     btnWrapper.appendChild(nextBtn);
 
@@ -378,8 +390,8 @@ async function deleteTransaction(transactionId) {
 
         if (result.status === 'success') {
             alert('🎉 ' + result.message);
-            //  reload ទំព័របច្ចុប្បន្នឡើងវិញ
-            loadTransactionsTable(currentTxPage, txLimitPerPage);
+            // reload ទំព័របច្ចុប្បន្នឡើងវិញ
+            loadTransactionsTable(currentTxPage, txLimitPerPage, currentSearchDate);
             updateDashboardMetricsUI();
         } else {
             alert('❌ ' + result.message);
@@ -481,7 +493,8 @@ async function renderAuditLogsTable(containerId) {
         html += `
             <tr class="${actionClass}">
                 <td><small>${log.created_at}</small></td>
-                <td><strong>${log.operator}</strong></td>\n                <td><span class="badge-action">${log.action}</span></td>
+                <td><strong>${log.operator}</strong></td>
+                <td><span class="badge-action">${log.action}</span></td>
                 <td>${log.details}</td>
                 <td><code>${log.ip_address}</code></td>
             </tr>
@@ -498,8 +511,23 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('total-balance-khr')) {
         updateDashboardMetricsUI();
     }
+    
     // ដំណើរការទាញយកតារាងប្រតិបត្តិការដំបូង (ទំព័រទី ១)
     if (document.getElementById('transaction-table-body')) {
         loadTransactionsTable(1, 5);
+    }
+
+    // ស្វែងរក និងភ្ជាប់ Event Listener ទៅកាន់ប្រអប់ស្វែងរកតាមថ្ងៃខែ (Date Filter Input)
+    // targeting any date input that is not inside the 'transaction-form'
+    const dateFilterInput = document.getElementById('search-date') || 
+                            document.getElementById('filter-date') || 
+                            document.querySelector('input[type="date"]:not(#transaction-form input)');
+    
+    if (dateFilterInput) {
+        console.log("Found date filter input:", dateFilterInput);
+        dateFilterInput.addEventListener('change', function() {
+            console.log("Filtering transactions for date:", this.value);
+            loadTransactionsTable(1, txLimitPerPage, this.value);
+        });
     }
 });

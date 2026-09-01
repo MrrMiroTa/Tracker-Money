@@ -1,9 +1,9 @@
 <?php
 /**
- * api-transactions-v4.php - Secure Transaction Management API with Pagination, Soft Delete & Metrics
+ * api-transactions-v5.php - Secure Transaction Management API with Pagination, Date Filter, Soft Delete & Metrics
  * Part of the Khmer Payment Tracker and Financial Management System
  * 
- * Handles secure creation (POST), paginated retrieval (GET), and secure soft-deletion (DELETE) of transactions.
+ * Handles secure creation (POST), paginated & date-filtered retrieval (GET), and secure soft-deletion (DELETE) of transactions.
  * Includes SQL Injection prevention, Role-Based Access Control (RBAC), and Audit Logging.
  */
 
@@ -15,7 +15,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once 'config.php';
 
-// --- ១. ផ្ទៀងផ្ទាត់ការចូលប្រើប្រាស់ (Authentication Guard) ---
+// --- ១. ផ្ទៀងផ្ទាត់ការចូលប្រើប្រាស់ (Authentication Guard) ---\
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role'])) {
     http_response_code(401);
     echo json_encode(["status" => "error", "message" => "សូមចូលប្រើប្រាស់ប្រព័ន្ធជាមុនសិន។ (Unauthorized)"]);
@@ -47,7 +47,7 @@ switch ($method) {
         // ផ្ទៀងផ្ទាត់ភាពត្រឹមត្រូវនៃទិន្នន័យ (Validation Checks)
         if (empty($description) || $amount === false || $amount <= 0 || empty($currency) || empty($type) || empty($category) || empty($date)) {
             http_response_code(400);
-            echo json_encode(["status" => "error", "message" => "សូមបំពេញព័ត៌មានឱ្យបានត្រឹមត្រូវ និងគ្រប់គ្រាន់ (ទឹកប្រាក់ត្រូវតែធំជាង ០)។"]);
+            echo json_encode(["status" => "error", "message" => "សូមបំពេញព័ត៌មានឱ្យបានត្រឹមត្រូវ និងគ្រប់គ្រាន់ (ទឹកប្រាក់ត្រូវតែធំជាង ០)।"]);
             exit;
         }
 
@@ -160,11 +160,13 @@ switch ($method) {
             exit;
         }
 
-        // --- ៤. ការទាញយកបញ្ជីប្រតិបត្តិការជាមួយ Pagination (GET) ---
-        // ច្រោះយកតែទិន្នន័យដែលមិនទាន់ត្រូវបានលុបប៉ុណ្ណោះ (is_deleted = 0)
+        // --- ៤. ការទាញយកបញ្ជីប្រតិបត្តិការជាមួយ Pagination និង Date Filter (GET) ---
         $limit = isset($_GET['limit']) ? max(1, intval($_GET['limit'])) : 10;
         $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
         $offset = ($page - 1) * $limit;
+        
+        // ប្រមូលតម្លៃតម្រងកាលបរិច្ឆេទ (Date Filter - e.g. 'YYYY-MM-DD')
+        $filter_date = isset($_GET['date']) ? trim($_GET['date']) : '';
 
         // ក. គណនាចំនួនប្រតិបត្តិការសរុបដើម្បីកំណត់ទំព័រ (Total Count)
         $countQueryStr = "
@@ -173,12 +175,19 @@ switch ($method) {
             WHERE t.is_deleted = 0
         ";
         
+        if (!empty($filter_date)) {
+            $countQueryStr .= " AND DATE(t.date) = :filter_date";
+        }
+
         if ($current_role !== 'super_admin' && $current_role !== 'admin') {
             $countQueryStr .= " AND t.user_id = :user_id";
         }
 
         try {
             $countStmt = $db->prepare($countQueryStr);
+            if (!empty($filter_date)) {
+                $countStmt->bindValue(':filter_date', $filter_date, PDO::PARAM_STR);
+            }
             if ($current_role !== 'super_admin' && $current_role !== 'admin') {
                 $countStmt->bindValue(':user_id', $current_user_id, PDO::PARAM_INT);
             }
@@ -195,9 +204,14 @@ switch ($method) {
         // ខ. ទាញយកទិន្នន័យប្រតិបត្តិការតាមទំព័រនីមួយៗ (Paginated Results)
         $queryStr = "
             SELECT t.*, u.username as creator_name 
-            FROM transactions t \n            LEFT JOIN users u ON t.user_id = u.id
+            FROM transactions t 
+            LEFT JOIN users u ON t.user_id = u.id
             WHERE t.is_deleted = 0
         ";
+
+        if (!empty($filter_date)) {
+            $queryStr .= " AND DATE(t.date) = :filter_date";
+        }
 
         if ($current_role !== 'super_admin' && $current_role !== 'admin') {
             $queryStr .= " AND t.user_id = :user_id";
@@ -208,7 +222,9 @@ switch ($method) {
         try {
             $stmt = $db->prepare($queryStr);
             
-            // Bind សិទ្ធិ និងតម្លៃ Integer សម្រាប់ LIMIT, OFFSET ឱ្យបានម៉ត់ចត់
+            if (!empty($filter_date)) {
+                $stmt->bindValue(':filter_date', $filter_date, PDO::PARAM_STR);
+            }
             if ($current_role !== 'super_admin' && $current_role !== 'admin') {
                 $stmt->bindValue(':user_id', $current_user_id, PDO::PARAM_INT);
             }
