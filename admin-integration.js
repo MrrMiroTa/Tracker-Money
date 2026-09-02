@@ -1,22 +1,21 @@
 /**
- * admin-integration-v4.js - Frontend API Integration with Transaction Metrics, Pagination & Date Filtering
+ * admin-integration-v5.js - Frontend API Integration with Audit Archive & Edit Capability
  * Part of the Khmer Payment Tracker and Financial Management System
  * 
- * This script connects your frontend UI with the secure backend APIs (api-v2.php & api-transactions.php).
- * Handles user authentication, admin promotion approvals, real-time metrics, paginated & filtered transactions,
- * and secure soft deletion.
+ * Includes paginated transactions table, date filters, secure editing, soft deletion,
+ * real-time dashboard widgets, and dedicated audit history loading for admins.
  */
 
 const API_BASE_URL = 'api-v2.php';
-const API_TRANSACTIONS_URL = 'api-transactions.php'; // Map to api-transactions.php on user localhost
+const API_TRANSACTIONS_URL = 'api-transactions.php';
 
-// รក្សាទុកស្ថានភាពបច្ចុប្បន្ននៃតារាងប្រតិបត្តិការ (Pagination & Filter State)
+// Pagination State
 let currentTxPage = 1;
-let txLimitPerPage = 5; // លំនាំដើម ៥ ប្រតិបត្តិការក្នុងមួយទំព័រ
-let currentSearchDate = ''; // រក្សាទុកកាលបរិច្ឆេទតម្រង
+let txLimitPerPage = 5;
+let currentFilterDate = '';
 
 /**
- * Helper function to handle standard fetch requests with JSON
+ * Request Handler Helper
  */
 async function sendRequest(url, method = 'GET', bodyData = null) {
     const options = {
@@ -65,88 +64,20 @@ async function loginUser(username, password) {
  */
 async function logoutUser() {
     try {
-        const result = await sendRequest(`${API_BASE_URL}?action=logout`, 'POST');
+        // ផ្ញើសំណើទៅបំផ្លាញ Session លើ Server
+        await sendRequest(`${API_BASE_URL}?action=logout`, 'POST');
+    } catch (error) {
+        console.error('Logout API failed, forcing client-side logout:', error);
+    } finally {
+        // លុបទិន្នន័យពី LocalStorage របស់ Browser
         localStorage.removeItem('current_user');
-        return result;
-    } catch (error) {
-        console.error('Logout failed:', error);
+        
+        // បង្វែរទិសដៅទៅកាន់ទំព័រ Login វិញភ្លាមៗ (បង្ការការកកស្ទះទំព័រ)
+        window.location.href = 'login.php';
     }
 }
-
 /**
- * 3. Submit Admin Promotion Request (Maker Action)
- */
-async function requestAdminPromotion(targetUserId) {
-    try {
-        const result = await sendRequest(`${API_BASE_URL}?action=request_admin`, 'POST', {
-            target_user_id: parseInt(targetUserId)
-        });
-        alert(result.message);
-        return result;
-    } catch (error) {
-        alert(`Request Failed: ${error.message}`);
-        throw error;
-    }
-}
-
-/**
- * 4. Approve or Reject Admin Promotion (Checker Action)
- */
-async function handleAdminDecision(requestId, decision) {
-    try {
-        const result = await sendRequest(`${API_BASE_URL}?action=approve_admin`, 'POST', {
-            request_id: parseInt(requestId),
-            decision: decision
-        });
-        alert(result.message);
-        return result;
-    } catch (error) {
-        alert(`Decision Failed: ${error.message}`);
-        throw error;
-    }
-}
-
-/**
- * 5. Retrieve Pending Admin Promotion Requests
- */
-async function fetchPendingApprovals() {
-    try {
-        const result = await sendRequest(`${API_BASE_URL}?action=approvals`, 'GET');
-        return result.data;
-    } catch (error) {
-        console.error('Failed to load pending approvals:', error);
-        return [];
-    }
-}
-
-/**
- * 6. Retrieve All Registered Users
- */
-async function fetchUsers() {
-    try {
-        const result = await sendRequest(`${API_BASE_URL}?action=users`, 'GET');
-        return result.data;
-    } catch (error) {
-        console.error('Failed to load users:', error);
-        return [];
-    }
-}
-
-/**
- * 7. Retrieve System Security Audit Logs
- */
-async function fetchAuditLogs() {
-    try {
-        const result = await sendRequest(`${API_BASE_URL}?action=audit_logs`, 'GET');
-        return result.data;
-    } catch (error) {
-        console.error('Failed to load audit logs:', error);
-        return [];
-    }
-}
-
-/**
- * 8. Retrieve Transaction Metrics (Balances, Incomes, Expenses)
+ * 3. Retrieve Transaction Metrics
  */
 async function fetchTransactionMetrics() {
     try {
@@ -158,11 +89,8 @@ async function fetchTransactionMetrics() {
     }
 }
 
-
-// --- UI RENDERING HELPERS ---
-
 /**
- * Render dynamic real-time widgets/metrics on the Dashboard
+ * Update Dashboard Metrics Widgets
  */
 async function updateDashboardMetricsUI() {
     const metrics = await fetchTransactionMetrics();
@@ -191,52 +119,68 @@ async function updateDashboardMetricsUI() {
 }
 
 /**
- * ទាញយក និងបង្ហាញតារាងប្រតិបត្តិការជាមួយប្រព័ន្ធបែងចែកទំព័រ និងការច្រោះតាមកាលបរិច្ឆេទ (Paginated & Filtered Transactions Table)
+ * ទាញយក និងបង្ហាញតារាងប្រតិបត្តិការ (Paginated Transactions Table)
  */
-async function loadTransactionsTable(page = 1, limit = 5, searchDate = '') {
+async function loadTransactionsTable(page = 1, limit = 5, dateFilter = '') {
     const tableBody = document.getElementById('transaction-table-body');
     if (!tableBody) return;
 
     currentTxPage = page;
     txLimitPerPage = limit;
-    currentSearchDate = searchDate;
+    currentFilterDate = dateFilter;
 
     tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">កំពុងទាញយកទិន្នន័យប្រតិបត្តិការ...</td></tr>';
 
     try {
-        // បង្កើត URL ជាមួយប៉ារ៉ាម៉ែត្រទំព័រ ចំនួនកំណត់ និងតម្រងថ្ងៃខែ
-        let url = `${API_TRANSACTIONS_URL}?page=${page}&limit=${limit}`;
-        if (searchDate) {
-            url += `&date=${encodeURIComponent(searchDate)}`;
+        let fetchUrl = `${API_TRANSACTIONS_URL}?page=${page}&limit=${limit}`;
+        if (dateFilter) {
+            fetchUrl += `&date=${dateFilter}`;
         }
 
-        const response = await fetch(url);
+        const response = await fetch(fetchUrl);
         const result = await response.json();
 
         if (result.status === 'success') {
-            tableBody.innerHTML = ''; // សម្អាតតារាងចាស់
+            tableBody.innerHTML = ''; 
 
             if (result.data.length === 0) {
-                let emptyMsg = searchDate 
-                    ? `មិនមានប្រតិបត្តិការណាមួយក្នុងថ្ងៃទី <strong>${searchDate}</strong> នេះទេ។`
-                    : "មិនទាន់មានប្រតិបត្តិការនៅឡើយទេ។";
-                
-                tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; color: #6b7280;">${emptyMsg}</td></tr>`;
+                const message = dateFilter 
+                    ? `មិនមានប្រតិបត្តិការណាមួយក្នុងថ្ងៃទី ${dateFilter} នេះទេ។` 
+                    : `មិនទាន់មានប្រតិបត្តិការនៅឡើយទេ។`;
+                tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; color: #6b7280; font-weight: 600;">${message}</td></tr>`;
                 renderPaginationControls({ total_pages: 0, current_page: 0 });
                 return;
             }
 
-            // បង្ហាញជួរទិន្នន័យនីមួយៗ
             result.data.forEach(row => {
                 const typeColor = (row.raw_type === 'income') ? '#10b981' : '#ef4444';
                 const tr = document.createElement('tr');
                 tr.style.borderBottom = '1px solid #e5e7eb';
                 
-                // បង្ហាញប៊ូតុងលុប (Delete) សម្រាប់តែ Super Admin ប៉ុណ្ណោះ
                 const currentUser = JSON.parse(localStorage.getItem('current_user') || '{}');
-                const deleteActionHtml = (currentUser.role === 'super_admin')
-                    ? `<button onclick="deleteTransaction(${row.id})" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 1.1rem; padding: 4px 8px;" title="លុបប្រតិបត្តិការ">🗑️</button>`
-                    : `<span style="color: #9ca3af;">⋯</span>`;
+                
+                // User can edit/delete their own transaction (row.creator === '-'), Admin/Super Admin can edit/delete any
+                const isOwner = (row.creator === '-');
+                const canModify = isOwner || (currentUser.role === 'super_admin' || currentUser.role === 'admin');
+
+                let actionButtonsHtml = `<span style="color: #9ca3af;">⋯</span>`;
+
+                if (canModify) {
+                    // Escape details to prevent break in HTML string parameter
+                    const escapedDesc = encodeURIComponent(row.description);
+                    const escapedCategory = encodeURIComponent(row.category);
+                    
+                    actionButtonsHtml = `
+                        <div style="display: flex; gap: 8px; justify-content: center;">
+                            <button onclick="editTransactionClick(${row.id}, '${escapedDesc}', ${row.raw_amount}, '${row.raw_currency}', '${row.raw_type}', '${escapedCategory}', '${row.raw_date}')" 
+                                    style="background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 1.1rem; padding: 2px;" 
+                                    title="កែប្រែប្រតិបត្តិការ">✏️</button>
+                            <button onclick="deleteTransaction(${row.id})" 
+                                    style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 1.1rem; padding: 2px;" 
+                                    title="លុបប្រតិបត្តិការ">🗑️</button>
+                        </div>
+                    `;
+                }
 
                 tr.innerHTML = `
                     <td style="padding: 12px; font-size: 0.9rem; color: #4b5563;">${row.date}</td>
@@ -244,12 +188,11 @@ async function loadTransactionsTable(page = 1, limit = 5, searchDate = '') {
                     <td style="padding: 12px; color: #6b7280;">${row.creator}</td>
                     <td style="padding: 12px;"><span style="color: ${typeColor}; font-weight: bold;">${row.type}</span></td>
                     <td style="padding: 12px; font-weight: bold; color: #1f2937;">${row.amount}</td>
-                    <td style="padding: 12px; text-align: center;">${deleteActionHtml}</td>
+                    <td style="padding: 12px; text-align: center;">${actionButtonsHtml}</td>
                 `;
                 tableBody.appendChild(tr);
             });
 
-            // បង្កើត និងបង្ហាញប៊ូតុងគ្រប់គ្រងទំព័រ (Pagination Buttons)
             renderPaginationControls(result.pagination);
         } else {
             tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; color: #ef4444;">❌ មិនអាចទាញយកទិន្នន័យបានទេ៖ ${result.message}</td></tr>`;
@@ -266,7 +209,6 @@ async function loadTransactionsTable(page = 1, limit = 5, searchDate = '') {
 function renderPaginationControls(pagination) {
     let container = document.getElementById('pagination-controls');
     
-    // ប្រសិនបើមិនទាន់មាន Container ក្នុង HTML ទេ វានឹងបង្កើតវាដោយស្វ័យប្រវត្តិក្បែរតារាង
     if (!container) {
         const table = document.querySelector('.transaction-table');
         if (!table) return;
@@ -278,67 +220,57 @@ function renderPaginationControls(pagination) {
 
     const { current_page, total_pages, total_records } = pagination;
 
-    // សម្អាត HTML ចាស់
     container.innerHTML = '';
     
-    // កំណត់ស្ទីលសម្រាប់ Container ឱ្យស្អាតបាត
     container.style.display = 'flex';
-    container.style.justify = 'space-between';
+    container.style.justifyContent = 'space-between';
     container.style.alignItems = 'center';
     container.style.marginTop = '1rem';
     container.style.padding = '0.5rem 1rem';
     container.style.fontFamily = "'Kantumruy Pro', sans-serif";
 
     if (total_pages <= 1) {
-        container.style.display = 'none'; // លាក់បើសិនជាមានតែ ១ ទំព័រ
+        container.style.display = 'none'; 
         return;
     }
 
-    // ១. បង្ហាញព័ត៌មានចំនួនកំណត់ត្រា (Info Panel)
     const infoSpan = document.createElement('span');
     infoSpan.style.fontSize = '0.9rem';
     infoSpan.style.color = '#4b5563';
-    infoSpan.innerHTML = `ទំព័រទី ${current_page} នៃ ${total_pages} (សរុប ${total_records} ប្រតិបត្តិការ)`;
+    infoSpan.innerText = `ទំព័រទី ${current_page} នៃ ${total_pages} (សរុប ${total_records} ប្រតិបត្តិការ)`;
     container.appendChild(infoSpan);
 
-    // ២. បង្កើតប៊ូតុងផ្លាស់ប្តូរទំព័រ (Buttons Wrapper)
     const btnWrapper = document.createElement('div');
     btnWrapper.style.display = 'flex';
     btnWrapper.style.gap = '6px';
 
-    // ប៊ូតុងថយក្រោយ (Previous)
     const prevBtn = document.createElement('button');
     prevBtn.innerText = '« មុន';
     stylePaginationButton(prevBtn, current_page === 1);
     if (current_page > 1) {
-        prevBtn.addEventListener('click', () => loadTransactionsTable(current_page - 1, txLimitPerPage, currentSearchDate));
+        prevBtn.addEventListener('click', () => loadTransactionsTable(current_page - 1, txLimitPerPage, currentFilterDate));
     }
     btnWrapper.appendChild(prevBtn);
 
-    // ប៊ូតុងលេខទំព័រនីមួយៗ
     for (let i = 1; i <= total_pages; i++) {
         const pageBtn = document.createElement('button');
         pageBtn.innerText = i;
         stylePaginationButton(pageBtn, false, i === current_page);
-        pageBtn.addEventListener('click', () => loadTransactionsTable(i, txLimitPerPage, currentSearchDate));
+        pageBtn.addEventListener('click', () => loadTransactionsTable(i, txLimitPerPage, currentFilterDate));
         btnWrapper.appendChild(pageBtn);
     }
 
-    // ប៊ូតុងទៅមុខ (Next)
     const nextBtn = document.createElement('button');
     nextBtn.innerText = 'បន្ទាប់ »';
     stylePaginationButton(nextBtn, current_page === total_pages);
     if (current_page < total_pages) {
-        nextBtn.addEventListener('click', () => loadTransactionsTable(current_page + 1, txLimitPerPage, currentSearchDate));
+        nextBtn.addEventListener('click', () => loadTransactionsTable(current_page + 1, txLimitPerPage, currentFilterDate));
     }
     btnWrapper.appendChild(nextBtn);
 
     container.appendChild(btnWrapper);
 }
 
-/**
- * ជំនួយការតុបតែងស្ទីលប៊ូតុង Pagination (Button Styling Helper)
- */
 function stylePaginationButton(btn, isDisabled, isActive = false) {
     btn.style.padding = '6px 12px';
     btn.style.fontSize = '0.85rem';
@@ -372,10 +304,10 @@ function stylePaginationButton(btn, isDisabled, isActive = false) {
 }
 
 /**
- * លុបប្រតិបត្តិការដោយសុវត្ថិភាព (Soft Delete UI Action)
+ * ៤. លុបប្រតិបត្តិការដោយសុវត្ថិភាព (Soft Delete UI Action with Version archiving)
  */
 async function deleteTransaction(transactionId) {
-    if (!confirm("តើលោកអ្នកពិតជាចង់លុបប្រតិបត្តិការនេះមែនទេ? សកម្មភាពនេះនឹងត្រូវបានកត់ត្រាក្នុងប្រព័ន្ធសវនកម្ម។")) {
+    if (!confirm("តើលោកអ្នកពិតជាចង់លុបប្រតិបត្តិការនេះមែនទេ? សកម្មភាពនេះនឹងត្រូវបានចម្លងទុកបណ្ណសារសវនកម្ម។")) {
         return;
     }
 
@@ -390,8 +322,7 @@ async function deleteTransaction(transactionId) {
 
         if (result.status === 'success') {
             alert('🎉 ' + result.message);
-            // reload ទំព័របច្ចុប្បន្នឡើងវិញ
-            loadTransactionsTable(currentTxPage, txLimitPerPage, currentSearchDate);
+            loadTransactionsTable(currentTxPage, txLimitPerPage, currentFilterDate);
             updateDashboardMetricsUI();
         } else {
             alert('❌ ' + result.message);
@@ -403,131 +334,270 @@ async function deleteTransaction(transactionId) {
 }
 
 /**
- * Render dynamic approvals table
+ * ៥. ទាញយក និងបង្ហាញប្រវត្តិសវនកម្ម (Audit Archive Table for Admin Panel)
  */
-async function renderPendingApprovalsTable(containerId) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
+async function loadAuditHistoryTable() {
+    const tableBody = document.getElementById('history-table-body');
+    if (!tableBody) return;
 
-    container.innerHTML = '<p class="loading">កំពុងទាញយកទិន្នន័យសំណើ...</p>';
-    
-    const approvals = await fetchPendingApprovals();
-    const currentUser = JSON.parse(localStorage.getItem('current_user') || '{}');
+    tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 30px;">កំពុងទាញយកទិន្នន័យប្រវត្តិសវនកម្ម...</td></tr>';
 
-    if (approvals.length === 0) {
-        container.innerHTML = '<p class="no-data">គ្មានសំណើដែលត្រូវអនុម័តឡើយ។</p>';
-        return;
+    try {
+        const response = await fetch(`${API_TRANSACTIONS_URL}?action=admin_history`);
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            tableBody.innerHTML = '';
+
+            if (result.data.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px; color: #6b7280;">គ្មានកំណត់ត្រាបម្រុងទុកទិន្នន័យកែប្រែ ឬលុបនៅឡើយទេ។</td></tr>';
+                return;
+            }
+
+            result.data.forEach(row => {
+                const actionBadgeClass = (row.action_type === 'UPDATE') ? 'badge-update' : 'badge-delete';
+                
+                // Original Values Block
+                const origBlock = `
+                    <div class="comparison-box">
+                        <span class="comparison-label">ទិន្នន័យដើម</span>
+                        <strong>${row.original_description}</strong><br>
+                        ប្រភេទ៖ ${row.original_type} | ក្រុម៖ ${row.original_category}<br>
+                        ទឹកប្រាក់៖ <span style="color: #ef4444; font-weight: bold;">${row.original_amount}</span>
+                    </div>
+                `;
+
+                // New Values Block
+                let newBlock = '';
+                if (row.action_type === 'UPDATE') {
+                    newBlock = `
+                        <div class="comparison-box" style="border-color: #a7f3d0;">
+                            <span class="comparison-label" style="color: #065f46;">ទិន្នន័យថ្មី</span>
+                            <strong>${row.new_description}</strong><br>
+                            ប្រភេទ៖ ${row.new_type} | ក្រុម៖ ${row.new_category}<br>
+                            ទឹកប្រាក់៖ <span style="color: #10b981; font-weight: bold;">${row.new_amount}</span>
+                        </div>
+                    `;
+                } else {
+                    newBlock = `
+                        <div class="comparison-box" style="background-color: #fee2e2; border-color: #fca5a5; text-align: center; display: flex; justify-content: center; align-items: center; min-height: 50px;">
+                            <strong style="color: #991b1b; font-size: 0.8rem;">❌ ត្រូវបានលុបចេញពីប្រព័ន្ធ</strong>
+                        </div>
+                    `;
+                }
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="padding: 12px; color: #4b5563;"><small>${row.actioned_at}</small></td>
+                    <td style="padding: 12px;"><strong>${row.owner}</strong></td>
+                    <td style="padding: 12px;"><span class="badge ${actionBadgeClass}">${row.action_type === 'UPDATE' ? 'កែប្រែ' : 'លុបចោល'}</span></td>
+                    <td style="padding: 12px;">${origBlock}</td>
+                    <td style="padding: 12px;">${newBlock}</td>
+                    <td style="padding: 12px;">👤 <strong>${row.actioned_by}</strong></td>
+                `;
+                tableBody.appendChild(tr);
+            });
+        } else {
+            tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 30px; color: #ef4444;">❌ បរាជ័យ៖ ${result.message}</td></tr>`;
+        }
+    } catch (error) {
+        console.error('Error fetching audit history:', error);
+        tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 30px; color: #ef4444;">❌ មិនអាចតភ្ជាប់ទៅកាន់ API បានឡើយ។</td></tr>';
     }
-
-    let html = `
-        <table class="auth-table">
-            <thead>
-                <tr>
-                    <th>អ្នកស្នើសុំ (Maker)</th>
-                    <th>អ្នកប្រើប្រាស់ដែលត្រូវតម្លើង (Target)</th>
-                    <th>កាលបរិច្ឆេទស្នើ</th>
-                    <th>សកម្មភាព (Actions)</th>
-                </tr>
-            </thead>
-            <tbody>
-    `;
-
-    approvals.forEach(req => {
-        const isOwnRequest = (req.requested_by === currentUser.username);
-        const actionButtons = isOwnRequest 
-            ? `<span class="badge warning">រង់ចាំ Admin ផ្សេងអនុម័ត</span>`
-            : `
-                <button onclick="approveRequest(${req.id})" class="btn-approve">យល់ព្រម</button>
-                <button onclick="rejectRequest(${req.id})" class="btn-reject">បដិសេធ</button>
-            `;
-
-        html += `
-            <tr>
-                <td><strong>${req.requested_by_username || req.requested_by}</strong></td>
-                <td><span class="user-target">${req.target_username}</span></td>
-                <td>${req.created_at}</td>
-                <td>${actionButtons}</td>
-            </tr>
-        `;
-    });
-
-    html += '</tbody></table>';
-    container.innerHTML = html;
 }
 
 /**
- * Render system security audit logs
+ * ៦. បង្កើត និងគ្រប់គ្រង Edit Modal នៅលើ Frontend
  */
-async function renderAuditLogsTable(containerId) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
+function createEditModalMarkup() {
+    if (document.getElementById('edit-transaction-modal')) return;
 
-    container.innerHTML = '<p class="loading">កំពុងទាញយកកំណត់ត្រាសវនកម្ម...</p>';
-    const logs = await fetchAuditLogs();
+    const modalDiv = document.createElement('div');
+    modalDiv.id = 'edit-transaction-modal';
+    modalDiv.style.display = 'none';
+    modalDiv.style.position = 'fixed';
+    modalDiv.style.zIndex = '1000';
+    modalDiv.style.left = '0';
+    modalDiv.style.top = '0';
+    modalDiv.style.width = '100%';
+    modalDiv.style.height = '100%';
+    modalDiv.style.backgroundColor = 'rgba(0,0,0,0.4)';
+    modalDiv.style.justifyContent = 'center';
+    modalDiv.style.alignItems = 'center';
 
-    if (logs.length === 0) {
-        container.innerHTML = '<p class="no-data">គ្មានកំណត់ត្រាសកម្មភាពឡើយ។</p>';
-        return;
-    }
-
-    let html = `
-        <table class="audit-table">
-            <thead>
-                <tr>
-                    <th>ពេលវេលា</th>
-                    <th>អ្នកធ្វើសកម្មភាព</th>
-                    <th>សកម្មភាព (Action)</th>
-                    <th>ព័ត៌មានលម្អិត</th>
-                    <th>IP Address</th>
-                </tr>
-            </thead>
-            <tbody>
+    modalDiv.innerHTML = `
+        <div style="background-color: #ffffff; padding: 2rem; border-radius: 12px; width: 450px; max-width: 90%; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-family: 'Kantumruy Pro', sans-serif;">
+            <h3 style="margin-top: 0; margin-bottom: 1.5rem; color: #1f2937;">✏️ កែប្រែព័ត៌មានប្រតិបត្តិការ</h3>
+            <form id="edit-transaction-form">
+                <input type="hidden" id="edit-tx-id">
+                
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-weight: bold; margin-bottom: 0.5rem; font-size: 0.9rem;">បរិយាយ / ឈ្មោះប្រតិបត្តិការ</label>
+                    <input type="text" id="edit-tx-title" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; box-sizing: border-box;" required>
+                </div>
+                
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-weight: bold; margin-bottom: 0.5rem; font-size: 0.9rem;">ចំនួនទឹកប្រាក់</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="number" id="edit-tx-amount" step="any" style="flex: 1; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; box-sizing: border-box;" required>
+                        <select id="edit-tx-currency" style="padding: 8px; border: 1px solid #d1d5db; border-radius: 6px;" required>
+                            <option value="KHR">រៀល (៛)</option>
+                            <option value="USD">ដុល្លារ ($)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-weight: bold; margin-bottom: 0.5rem; font-size: 0.9rem;">ប្រភេទប្រតិបត្តិការ</label>
+                    <select id="edit-tx-type" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px;" required>
+                        <option value="income">ចំណូល (Income)</option>
+                        <option value="expense">ចំណាយ (Expense)</option>
+                    </select>
+                </div>
+                
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-weight: bold; margin-bottom: 0.5rem; font-size: 0.9rem;">ប្រភេទក្រុម (Category)</label>
+                    <input type="text" id="edit-tx-category" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; box-sizing: border-box;" required>
+                </div>
+                
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; font-weight: bold; margin-bottom: 0.5rem; font-size: 0.9rem;">កាលបរិច្ឆេទ</label>
+                    <input type="date" id="edit-tx-date" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; box-sizing: border-box;" required>
+                </div>
+                
+                <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                    <button type="button" onclick="closeEditTransactionModal()" style="padding: 8px 16px; border: 1px solid #d1d5db; background: #ffffff; border-radius: 6px; cursor: pointer;">បោះបង់</button>
+                    <button type="submit" style="padding: 8px 16px; background: #2563eb; color: #ffffff; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">រក្សាទុកទិន្នន័យ</button>
+                </div>
+            </form>
+        </div>
     `;
 
-    logs.forEach(log => {
-        let actionClass = '';
-        if (log.action.includes('APPROVE')) actionClass = 'log-success';
-        else if (log.action.includes('REJECT') || log.action.includes('VIOLATION')) actionClass = 'log-danger';
-        else if (log.action.includes('REQUEST')) actionClass = 'log-info';
+    document.body.appendChild(modalDiv);
 
-        html += `
-            <tr class="${actionClass}">
-                <td><small>${log.created_at}</small></td>
-                <td><strong>${log.operator}</strong></td>
-                <td><span class="badge-action">${log.action}</span></td>
-                <td>${log.details}</td>
-                <td><code>${log.ip_address}</code></td>
-            </tr>
-        `;
+    // Modal Submit listener
+    document.getElementById('edit-transaction-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const payload = {
+            transaction_id: parseInt(document.getElementById('edit-tx-id').value),
+            title: document.getElementById('edit-tx-title').value,
+            amount: parseFloat(document.getElementById('edit-tx-amount').value),
+            currency: document.getElementById('edit-tx-currency').value,
+            type: document.getElementById('edit-tx-type').value,
+            category: document.getElementById('edit-tx-category').value,
+            date: document.getElementById('edit-tx-date').value
+        };
+
+        try {
+            const response = await fetch(API_TRANSACTIONS_URL, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json();
+
+            if (result.status === 'success') {
+                alert('🎉 ' + result.message);
+                closeEditTransactionModal();
+                loadTransactionsTable(currentTxPage, txLimitPerPage, currentFilterDate);
+                updateDashboardMetricsUI();
+            } else {
+                alert('❌ ' + result.message);
+            }
+        } catch (error) {
+            console.error('Error updating transaction:', error);
+            alert('❌ មានបញ្ហាក្នុងការតភ្ជាប់ទៅកាន់ Server!');
+        }
     });
-
-    html += '</tbody></table>';
-    container.innerHTML = html;
 }
 
-// Hook dynamic load into DOM state
+function editTransactionClick(id, title, amount, currency, type, category, date) {
+    createEditModalMarkup();
+    
+    document.getElementById('edit-tx-id').value = id;
+    document.getElementById('edit-tx-title').value = decodeURIComponent(title);
+    document.getElementById('edit-tx-amount').value = amount;
+    document.getElementById('edit-tx-currency').value = currency;
+    document.getElementById('edit-tx-type').value = type;
+    document.getElementById('edit-tx-category').value = decodeURIComponent(category);
+    document.getElementById('edit-tx-date').value = date;
+
+    const modal = document.getElementById('edit-transaction-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+    }
+}
+
+function closeEditTransactionModal() {
+    const modal = document.getElementById('edit-transaction-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+
+// --- ៧. Setup Listeners and Autoloaders ---
 document.addEventListener('DOMContentLoaded', () => {
-    // ធ្វើបច្ចុប្បន្នភាព Dashboard Widgets
+    // បង្កើត Modal Container ត្រៀមជាមុនសិន
+    createEditModalMarkup();
+
+    // ធ្វើបច្ចុប្បន្នភាព Metrics លើ Dashboard
     if (document.getElementById('total-balance-khr')) {
         updateDashboardMetricsUI();
     }
     
-    // ដំណើរការទាញយកតារាងប្រតិបត្តិការដំបូង (ទំព័រទី ១)
+    // <b>ទាញយកបញ្ជីប្រតិបត្តិការទំព័រដំបូង</b>
     if (document.getElementById('transaction-table-body')) {
         loadTransactionsTable(1, 5);
     }
 
-    // ស្វែងរក និងភ្ជាប់ Event Listener ទៅកាន់ប្រអប់ស្វែងរកតាមថ្ងៃខែ (Date Filter Input)
-    // targeting any date input that is not inside the 'transaction-form'
-    const dateFilterInput = document.getElementById('search-date') || 
-                            document.getElementById('filter-date') || 
-                            document.querySelector('input[type="date"]:not(#transaction-form input)');
-    
-    if (dateFilterInput) {
-        console.log("Found date filter input:", dateFilterInput);
-        dateFilterInput.addEventListener('change', function() {
-            console.log("Filtering transactions for date:", this.value);
-            loadTransactionsTable(1, txLimitPerPage, this.value);
+    // ភ្ជាប់ Event Listener សម្រាប់ឧបករណ៍ស្វែងរកថ្ងៃខែ (Date Filter Search)
+    const dateInput = document.getElementById('search-date') || document.getElementById('filter-date');
+    if (dateInput) {
+        dateInput.addEventListener('change', (e) => {
+            const selectedDate = e.target.value;
+            loadTransactionsTable(1, txLimitPerPage, selectedDate);
+        });
+    }
+
+    // Form បញ្ចូលប្រតិបត្តិការថ្មី (POST)
+    const transactionForm = document.getElementById('transaction-form');
+    if (transactionForm) {
+        transactionForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const payload = {
+                title: document.getElementById('title').value,
+                amount: parseFloat(document.getElementById('amount').value),
+                currency: document.getElementById('currency').value,
+                type: document.getElementById('type').value,
+                category: document.getElementById('category').value,
+                date: document.getElementById('date').value
+            };
+
+            try {
+                const response = await fetch(API_TRANSACTIONS_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    alert('🎉 ' + result.message);
+                    transactionForm.reset();
+                    loadTransactionsTable(1, txLimitPerPage, currentFilterDate);
+                    updateDashboardMetricsUI();
+                } else {
+                    alert('❌ ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error adding transaction:', error);
+                alert('❌ មានបញ្ហាក្នុងការតភ្ជាប់ទៅកាន់ Server!');
+            }
         });
     }
 });
