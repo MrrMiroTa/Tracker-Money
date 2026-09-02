@@ -187,6 +187,12 @@ $username = $_SESSION['username'] ?? 'Unknown';
             border: 1px solid #fca5a5;
         }
 
+        .badge-info {
+            background-color: #e0f2fe;
+            color: #0369a1;
+            border: 1px solid #bae6fd;
+        }
+
         /* Comparison block */
         .comparison-box {
             background-color: #f9fafb;
@@ -272,12 +278,13 @@ $username = $_SESSION['username'] ?? 'Unknown';
                             <th>ប្រភេទសកម្មភាព</th>
                             <th>ទិន្នន័យដើម (Original Value)</th>
                             <th>ទិន្នន័យថ្មី (New Value)</th>
+                            <th style="text-align: center;">សកម្មភាព</th>
                             <th>អ្នកធ្វើការកែប្រែ / លុប</th>
                         </tr>
                     </thead>
                     <tbody id="history-table-body">
                         <tr>
-                            <td colspan="6" style="text-align: center; padding: 30px; color: #4b5563;">កំពុងទាញយកទិន្នន័យប្រវត្តិសវនកម្ម...</td>
+                            <td colspan="7" style="text-align: center; padding: 30px; color: #4b5563;">កំពុងទាញយកទិន្នន័យប្រវត្តិសវនកម្ម...</td>
                         </tr>
                     </tbody>
                 </table>

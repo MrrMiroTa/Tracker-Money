@@ -64,18 +64,15 @@ async function loginUser(username, password) {
  */
 async function logoutUser() {
     try {
-        // ផ្ញើសំណើទៅបំផ្លាញ Session លើ Server
         await sendRequest(`${API_BASE_URL}?action=logout`, 'POST');
     } catch (error) {
-        console.error('Logout API failed, forcing client-side logout:', error);
+        console.error('Logout failed, forcing client-side logout:', error);
     } finally {
-        // លុបទិន្នន័យពី LocalStorage របស់ Browser
         localStorage.removeItem('current_user');
-        
-        // បង្វែរទិសដៅទៅកាន់ទំព័រ Login វិញភ្លាមៗ (បង្ការការកកស្ទះទំព័រ)
         window.location.href = 'login.php';
     }
 }
+
 /**
  * 3. Retrieve Transaction Metrics
  */
@@ -355,7 +352,16 @@ async function loadAuditHistoryTable() {
             }
 
             result.data.forEach(row => {
-                const actionBadgeClass = (row.action_type === 'UPDATE') ? 'badge-update' : 'badge-delete';
+                let actionBadgeClass = 'badge-update';
+                let actionBadgeText = 'កែប្រែ';
+                
+                if (row.action_type === 'DELETE') {
+                    actionBadgeClass = 'badge-delete';
+                    actionBadgeText = 'លុបចោល';
+                } else if (row.action_type === 'RESTORE') {
+                    actionBadgeClass = 'badge-info';
+                    actionBadgeText = 'ស្តារឡើងវិញ';
+                }
                 
                 // Original Values Block
                 const origBlock = `
@@ -378,6 +384,12 @@ async function loadAuditHistoryTable() {
                             ទឹកប្រាក់៖ <span style="color: #10b981; font-weight: bold;">${row.new_amount}</span>
                         </div>
                     `;
+                } else if (row.action_type === 'RESTORE') {
+                    newBlock = `
+                        <div class="comparison-box" style="background-color: #e0f2fe; border-color: #7dd3fc; text-align: center; display: flex; justify-content: center; align-items: center; min-height: 50px;">
+                            <strong style="color: #0369a1; font-size: 0.8rem;">🔄 បានស្តារឡើងវិញទៅ Dashboard</strong>
+                        </div>
+                    `;
                 } else {
                     newBlock = `
                         <div class="comparison-box" style="background-color: #fee2e2; border-color: #fca5a5; text-align: center; display: flex; justify-content: center; align-items: center; min-height: 50px;">
@@ -386,13 +398,33 @@ async function loadAuditHistoryTable() {
                     `;
                 }
 
+                // Restore Button Block for deleted transactions
+                let actionColumnHtml = '';
+                if (row.action_type === 'DELETE') {
+                    if (row.current_deleted_status === 1) {
+                        actionColumnHtml = `
+                            <button onclick="restoreTransaction(${row.transaction_id})" 
+                                    style="background-color: #10b981; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-family: 'Kantumruy Pro', sans-serif; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 4px; transition: background 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.1);"
+                                    onmouseover="this.style.backgroundColor='#059669'"
+                                    onmouseout="this.style.backgroundColor='#10b981'">
+                                🔄 ស្តារឡើងវិញ
+                            </button>
+                        `;
+                    } else {
+                        actionColumnHtml = `<span class="badge" style="background-color: #d1fae5; color: #065f46; font-size: 0.8rem; padding: 4px 8px; border-radius: 50px; font-weight: 600;">✅ បានស្តាររួច</span>`;
+                    }
+                } else {
+                    actionColumnHtml = `<span style="color: #9ca3af; font-size: 0.85rem;">-</span>`;
+                }
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td style="padding: 12px; color: #4b5563;"><small>${row.actioned_at}</small></td>
                     <td style="padding: 12px;"><strong>${row.owner}</strong></td>
-                    <td style="padding: 12px;"><span class="badge ${actionBadgeClass}">${row.action_type === 'UPDATE' ? 'កែប្រែ' : 'លុបចោល'}</span></td>
+                    <td style="padding: 12px;"><span class="badge ${actionBadgeClass}">${actionBadgeText}</span></td>
                     <td style="padding: 12px;">${origBlock}</td>
                     <td style="padding: 12px;">${newBlock}</td>
+                    <td style="padding: 12px; text-align: center; vertical-align: middle;">${actionColumnHtml}</td>
                     <td style="padding: 12px;">👤 <strong>${row.actioned_by}</strong></td>
                 `;
                 tableBody.appendChild(tr);
@@ -403,6 +435,40 @@ async function loadAuditHistoryTable() {
     } catch (error) {
         console.error('Error fetching audit history:', error);
         tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 30px; color: #ef4444;">❌ មិនអាចតភ្ជាប់ទៅកាន់ API បានឡើយ។</td></tr>';
+    }
+}
+
+/**
+ * ៨. មុខងារស្តារប្រតិបត្តិការដែលលុបចោលឡើងវិញ (Restore Deleted Transaction)
+ */
+async function restoreTransaction(transactionId) {
+    if (!confirm("តើលោកអ្នកពិតជាចង់ស្តារប្រតិបត្តិការនេះឡើងវិញទៅកាន់ Dashboard ដែរឬទេ?")) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_TRANSACTIONS_URL}?action=restore`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ transaction_id: transactionId })
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            alert('🎉 ' + result.message);
+            // ហៅឱ្យរៀបចំតារាងប្រវត្តិសវនកម្មឡើងវិញ
+            loadAuditHistoryTable();
+            // ធ្វើបច្ចុប្បន្នភាព Dashboard Metrics ផងដែរ ប្រសិនបើមាន Widgets
+            if (document.getElementById('total-balance-khr')) {
+                updateDashboardMetricsUI();
+            }
+        } else {
+            alert('❌ ' + result.message);
+        }
+    } catch (error) {
+        console.error('Error restoring transaction:', error);
+        alert('❌ មានបញ្ហាក្នុងការតភ្ជាប់ទៅកាន់ Server!');
     }
 }
 
