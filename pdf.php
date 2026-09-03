@@ -1,5 +1,5 @@
 <?php
-// pdf-v2.php
+// pdf-v3.php
 // Upgraded PDF Export Service with RBAC, Soft-Delete Filtering, Date Filters, Dual-Currency Support, and Audit Logging
 // Designed for Khmer Payment Tracker and Financial Management System
 
@@ -57,7 +57,7 @@ try {
     $stmt->execute($params);
     $transactions = $stmt->fetchAll();
 } catch (PDOException $e) {
-    error_log("Database error in pdf-v2.php: " . $e->getMessage());
+    error_log("Database error in pdf.php: " . $e->getMessage());
     die("មានបញ្ហាបច្ចេកទេសក្នុងការទាញយកទិន្នន័យ។");
 }
 
@@ -79,7 +79,7 @@ try {
         ':ip_address' => $ip_address
     ]);
 } catch (PDOException $e) {
-    error_log("Failed to write audit log in pdf-v2.php: " . $e->getMessage());
+    error_log("Failed to write audit log in pdf.php: " . $e->getMessage());
 }
 
 // 5. PDF Generation Engine
@@ -100,12 +100,23 @@ if (!class_exists('FPDF') && file_exists('tfpdf/tfpdf.php')) {
                 $filename .= '_filtered_' . $filter_date;
             }
             header('Content-Disposition: attachment; filename=' . $filename . '.csv');
-            echo "\xEF\xBB\xBF"; // UTF-8 BOM for Excel Khmer text rendering
+            echo "\xEF\xBB\xBF"; // UTF-8 BOM for Khmer encoding in Excel
             $output = fopen('php://output', 'w');
-            fputcsv($output, ['កាលបរិច្ឆេទ', 'បរិយាយ', 'អ្នកបន្ថែម', 'ប្រភេទ', 'จำนวนទឹកប្រាក់ (រៀល)', 'จำนวนទឹកប្រាក់ (ដុល្លារ)']);
+            fputcsv($output, ['កាលបរិច្ឆេទ', 'បរិយាយ', 'អ្នកបន្ថែម', 'ប្រភេទ', 'ចំនួនទឹកប្រាក់ (រៀល)', 'ចំនួនទឹកប្រាក់ (ដុល្លារ)']);
             global $transactions;
             foreach ($transactions as $row) {
-                fputcsv($output, [\n                    $row['date'],\n                    $row['description'],\n                    $row['creator_name'] ?? $row['user_id'],\n                    $row['type'] === 'income' ? 'ចំណូល' : 'ចំណាយ',\n                    $row['currency'] === 'KHR' ? number_format($row['amount']) . ' ៛' : '0 ៛',\n                    $row['currency'] === 'USD' ? '$' . number_format($row['amount'], 2) : '$0.00'\n                ]);\n            }\n            fclose($output);\n            exit;\n        }
+                fputcsv($output, [
+                    $row['date'],
+                    $row['description'],
+                    $row['creator_name'] ?? $row['user_id'],
+                    $row['type'] === 'income' ? 'ចំណូល' : 'ចំណាយ',
+                    $row['currency'] === 'KHR' ? number_format($row['amount']) . ' ៛' : '0 ៛',
+                    $row['currency'] === 'USD' ? '$' . number_format($row['amount'], 2) : '$0.00'
+                ]);
+            }
+            fclose($output);
+            exit;
+        }
     }
 }
 
@@ -133,20 +144,28 @@ if (class_exists('PDF_Engine') && method_exists('PDF_Engine', 'AddPage')) {
     $pdf->Ln(10);
     
     // Header Table Columns
-    $pdf->Cell(30, 8, 'Date', 1);\n    $pdf->Cell(60, 8, 'Description', 1);\n    $pdf->Cell(30, 8, 'Created By', 1);\n    $pdf->Cell(20, 8, 'Type', 1);\n    $pdf->Cell(25, 8, 'Amount (KHR)', 1);\n    $pdf->Cell(25, 8, 'Amount (USD)', 1);\n    $pdf->Ln();
+    $pdf->Cell(30, 8, 'Date', 1);
+    $pdf->Cell(60, 8, 'Description', 1);
+    $pdf->Cell(30, 8, 'Created By', 1);
+    $pdf->Cell(20, 8, 'Type', 1);
+    $pdf->Cell(25, 8, 'Amount (KHR)', 1);
+    $pdf->Cell(25, 8, 'Amount (USD)', 1);
+    $pdf->Ln();
     
     // Rows
     foreach ($transactions as $row) {
-        $pdf->Cell(30, 6, $row['date'], 1);\n        $pdf->Cell(60, 6, substr($row['description'], 0, 30), 1);\n        $pdf->Cell(30, 6, $row['creator_name'] ?? ('User ID: ' . $row['user_id']), 1);\n        $pdf->Cell(20, 6, ucfirst($row['type']), 1);\n        $pdf->Cell(25, 6, ($row['currency'] === 'KHR' ? number_format($row['amount']) . ' KHR' : '-'), 1);\n        $pdf->Cell(25, 6, ($row['currency'] === 'USD' ? '$' . number_format($row['amount'], 2) : '-'), 1);\n        $pdf->Ln();
+        $pdf->Cell(30, 6, $row['date'], 1);
+        $pdf->Cell(60, 6, substr($row['description'], 0, 30), 1);
+        $pdf->Cell(30, 6, $row['creator_name'] ?? ('User ID: ' . $row['user_id']), 1);
+        $pdf->Cell(20, 6, ucfirst($row['type']), 1);
+        $pdf->Cell(25, 6, ($row['currency'] === 'KHR' ? number_format($row['amount']) . ' KHR' : '-'), 1);
+        $pdf->Cell(25, 6, ($row['currency'] === 'USD' ? '$' . number_format($row['amount'], 2) : '-'), 1);
+        $pdf->Ln();
     }
     
     // Output PDF File
     header('Content-Type: application/pdf');
-    $filename = 'payment_report_' . date('Ymd');
-    if (!empty($filter_date)) {
-        $filename .= '_' . str_replace('-', '', $filter_date);
-    }
-    header('Content-Disposition: attachment; filename="' . $filename . '.pdf"');
+    header('Content-Disposition: attachment; filename="payment_report_' . date('Ymd') . '.pdf"');
     $pdf->Output('I');
 }
 ?>

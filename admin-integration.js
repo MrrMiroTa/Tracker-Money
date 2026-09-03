@@ -8,6 +8,211 @@
 
 const API_BASE_URL = 'api-v2.php';
 const API_TRANSACTIONS_URL = 'api-transactions.php';
+// --- CUSTOM UI COMPONENTS (TOAST, CONFIRM MODAL, ACTION CHOICE MODAL) ---
+
+/**
+ * Show a beautifully designed custom toast notification (replacing browser alert)
+ */
+function showToast(message, type = 'success') {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.style.position = 'fixed';
+        container.style.top = '20px';
+        container.style.right = '20px';
+        container.style.zIndex = '9999';
+        container.style.display = 'flex';
+        container.style.flexDirection = 'column';
+        container.style.gap = '10px';
+        document.body.appendChild(container);
+    }
+    
+    const toast = document.createElement('div');
+    toast.style.minWidth = '300px';
+    toast.style.padding = '12px 20px';
+    toast.style.borderRadius = '8px';
+    toast.style.color = '#ffffff';
+    toast.style.fontFamily = "'Kantumruy Pro', sans-serif";
+    toast.style.fontSize = '0.9rem';
+    toast.style.fontWeight = '600';
+    toast.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)';
+    toast.style.display = 'flex';
+    toast.style.alignItems = 'center';
+    toast.style.justifyContent = 'space-between';
+    toast.style.transition = 'all 0.3s ease-in-out';
+    toast.style.transform = 'translateX(120%)';
+    toast.style.opacity = '0';
+    
+    if (type === 'success') {
+        toast.style.backgroundColor = '#10b981'; // Green
+        toast.innerHTML = `<span>🎉 ${message}</span>`;
+    } else if (type === 'error') {
+        toast.style.backgroundColor = '#ef4444'; // Red
+        toast.innerHTML = `<span>❌ ${message}</span>`;
+    } else {
+        toast.style.backgroundColor = '#3b82f6'; // Blue / Info
+        toast.innerHTML = `<span>ℹ️ ${message}</span>`;
+    }
+    
+    const closeBtn = document.createElement('span');
+    closeBtn.innerHTML = '&times;';
+    closeBtn.style.cursor = 'pointer';
+    closeBtn.style.fontSize = '1.25rem';
+    closeBtn.style.marginLeft = '15px';
+    closeBtn.addEventListener('click', () => {
+        toast.style.transform = 'translateX(120%)';
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+    });
+    toast.appendChild(closeBtn);
+    container.appendChild(toast);
+    
+    // Trigger animation
+    setTimeout(() => {
+        toast.style.transform = 'translateX(0)';
+        toast.style.opacity = '1';
+    }, 50);
+    
+    // Auto remove
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.style.transform = 'translateX(120%)';
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 300);
+        }
+    }, 4000);
+}
+
+/**
+ * Show a beautifully designed custom confirmation modal (replacing browser confirm)
+ */
+function showCustomConfirm(message, onConfirm) {
+    let modal = document.getElementById('custom-confirm-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'custom-confirm-modal';
+        modal.style.position = 'fixed';
+        modal.style.zIndex = '10001';
+        modal.style.left = '0';
+        modal.style.top = '0';
+        modal.style.width = '100%';
+        modal.style.height = '100%';
+        modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
+        modal.style.display = 'none';
+        modal.style.justifyContent = 'center';
+        modal.style.alignItems = 'center';
+        modal.style.fontFamily = "'Kantumruy Pro', sans-serif";
+        
+        modal.innerHTML = `
+            <div style="background-color: #ffffff; padding: 2rem; border-radius: 12px; width: 400px; max-width: 90%; box-shadow: 0 4px 15px rgba(0,0,0,0.2); text-align: center;">
+                <div style="font-size: 3rem; color: #ef4444; margin-bottom: 1rem;">⚠️</div>
+                <h3 style="margin-top: 0; color: #1f2937;" id="custom-confirm-title">បញ្ជាក់សកម្មភាព</h3>
+                <p id="custom-confirm-msg" style="color: #4b5563; font-size: 0.95rem; margin-bottom: 1.5rem;"></p>
+                <div style="display: flex; gap: 12px; justify-content: center;">
+                    <button id="custom-confirm-yes" style="padding: 8px 20px; border: none; background: #ef4444; color: white; border-radius: 6px; font-weight: bold; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.backgroundColor='#dc2626'" onmouseout="this.style.backgroundColor='#ef4444'">យល់ព្រមលុប</button>
+                    <button id="custom-confirm-no" style="padding: 8px 20px; border: 1px solid #d1d5db; background: #ffffff; color: #4b5563; border-radius: 6px; font-weight: bold; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.backgroundColor='#f3f4f6'" onmouseout="this.style.backgroundColor='#ffffff'">បោះបង់</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    document.getElementById('custom-confirm-msg').innerText = message;
+    modal.style.display = 'flex';
+    
+    const yesBtn = document.getElementById('custom-confirm-yes');
+    const noBtn = document.getElementById('custom-confirm-no');
+    
+    const newYesBtn = yesBtn.cloneNode(true);
+    const newNoBtn = noBtn.cloneNode(true);
+    yesBtn.parentNode.replaceChild(newYesBtn, yesBtn);
+    noBtn.parentNode.replaceChild(newNoBtn, noBtn);
+    
+    newYesBtn.addEventListener('click', () => {
+        modal.style.display = 'none';
+        if (typeof onConfirm === 'function') onConfirm();
+    });
+    
+    newNoBtn.addEventListener('click', () => {
+        modal.style.display = 'none';
+    });
+}
+
+/**
+ * Show action choices (Update/Delete) for a transaction when user clicks the '...' button
+ */
+function showActionChoiceModal(id, title, amount, currency, type, category, date) {
+    let modal = document.getElementById('action-choice-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'action-choice-modal';
+        modal.style.position = 'fixed';
+        modal.style.zIndex = '10000';
+        modal.style.left = '0';
+        modal.style.top = '0';
+        modal.style.width = '100%';
+        modal.style.height = '100%';
+        modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
+        modal.style.display = 'none';
+        modal.style.justifyContent = 'center';
+        modal.style.alignItems = 'center';
+        modal.style.fontFamily = "'Kantumruy Pro', sans-serif";
+        
+        modal.innerHTML = `
+            <div style="background-color: #ffffff; padding: 2rem; border-radius: 12px; width: 420px; max-width: 90%; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+                <h3 style="margin-top: 0; color: #1e3a8a; border-bottom: 2px solid #e5e7eb; padding-bottom: 0.5rem;" id="action-choice-title">សកម្មភាពប្រតិបត្តិការ</h3>
+                <div style="margin: 1rem 0; padding: 10px; background-color: #f3f4f6; border-radius: 8px;">
+                    <span style="font-size: 0.85rem; color: #6b7280;">ប្រតិបត្តិការ៖</span><br>
+                    <strong id="action-choice-desc" style="font-size: 1.05rem; color: #1f2937;"></strong><br>
+                    <span style="font-size: 0.85rem; color: #6b7280;">ទឹកប្រាក់៖</span> <strong id="action-choice-amount" style="color: #2563eb;"></strong>
+                </div>
+                <p style="color: #4b5563; font-size: 0.9rem; margin-bottom: 1.5rem;">សូមជ្រើសរើសសកម្មភាពណាមួយដែលលោកអ្នកចង់អនុវត្តខាងក្រោម៖</p>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <button id="action-btn-update" style="padding: 10px; border: none; background: #3b82f6; color: white; border-radius: 6px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.2s;" onmouseover="this.style.backgroundColor='#2563eb'" onmouseout="this.style.backgroundColor='#3b82f6'">✏️ កែប្រែទិន្នន័យ (Update)</button>
+                    <button id="action-btn-delete" style="padding: 10px; border: none; background: #ef4444; color: white; border-radius: 6px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.2s;" onmouseover="this.style.backgroundColor='#dc2626'" onmouseout="this.style.backgroundColor='#ef4444'">🗑️ លុបប្រតិបត្តិការ (Delete)</button>
+                    <button id="action-btn-cancel" style="padding: 10px; border: 1px solid #d1d5db; background: #ffffff; color: #4b5563; border-radius: 6px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.2s;" onmouseover="this.style.backgroundColor='#f3f4f6'" onmouseout="this.style.backgroundColor='#ffffff'">បោះបង់</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    const decodedTitle = decodeURIComponent(title);
+    const displayAmount = currency === 'KHR' ? parseFloat(amount).toLocaleString() + ' ៛' : '$' + parseFloat(amount).toFixed(2);
+    
+    document.getElementById('action-choice-desc').innerText = decodedTitle;
+    document.getElementById('action-choice-amount').innerText = displayAmount;
+    
+    modal.style.display = 'flex';
+    
+    const updateBtn = document.getElementById('action-btn-update');
+    const deleteBtn = document.getElementById('action-btn-delete');
+    const cancelBtn = document.getElementById('action-btn-cancel');
+    
+    const newUpdateBtn = updateBtn.cloneNode(true);
+    const newDeleteBtn = deleteBtn.cloneNode(true);
+    const newCancelBtn = cancelBtn.cloneNode(true);
+    
+    updateBtn.parentNode.replaceChild(newUpdateBtn, updateBtn);
+    deleteBtn.parentNode.replaceChild(newDeleteBtn, deleteBtn);
+    cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+    
+    newUpdateBtn.addEventListener('click', () => {
+        modal.style.display = 'none';
+        editTransactionClick(id, title, amount, currency, type, category, date);
+    });
+    
+    newDeleteBtn.addEventListener('click', () => {
+        modal.style.display = 'none';
+        deleteTransaction(id);
+    });
+    
+    newCancelBtn.addEventListener('click', () => {
+        modal.style.display = 'none';
+    });
+}
+
 
 // Pagination State
 let currentTxPage = 1;
@@ -54,7 +259,7 @@ async function loginUser(username, password) {
         localStorage.setItem('current_user', JSON.stringify(result.user));
         return result;
     } catch (error) {
-        alert(`Login Failed: ${error.message}`);
+        showToast(`Login Failed: ${error.message}`, 'error');
         throw error;
     }
 }
@@ -163,19 +368,15 @@ async function loadTransactionsTable(page = 1, limit = 5, dateFilter = '') {
                 let actionButtonsHtml = `<span style="color: #9ca3af;">⋯</span>`;
 
                 if (canModify) {
-                    // Escape details to prevent break in HTML string parameter
                     const escapedDesc = encodeURIComponent(row.description);
                     const escapedCategory = encodeURIComponent(row.category);
                     
                     actionButtonsHtml = `
-                        <div style="display: flex; gap: 8px; justify-content: center;">
-                            <button onclick="editTransactionClick(${row.id}, '${escapedDesc}', ${row.raw_amount}, '${row.raw_currency}', '${row.raw_type}', '${escapedCategory}', '${row.raw_date}')" 
-                                    style="background: none; border: none; color: #3b82f6; cursor: pointer; font-size: 1.1rem; padding: 2px;" 
-                                    title="កែប្រែប្រតិបត្តិការ">✏️</button>
-                            <button onclick="deleteTransaction(${row.id})" 
-                                    style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 1.1rem; padding: 2px;" 
-                                    title="លុបប្រតិបត្តិការ">🗑️</button>
-                        </div>
+                        <button onclick="showActionChoiceModal(${row.id}, '${escapedDesc}', ${row.raw_amount}, '${row.raw_currency}', '${row.raw_type}', '${escapedCategory}', '${row.raw_date}')" 
+                                style="background: #f3f4f6; border: 1px solid #cbd5e1; color: #4b5563; cursor: pointer; font-size: 1.1rem; padding: 4px 12px; border-radius: 6px; font-weight: bold; transition: all 0.15s ease-in-out;" 
+                                onmouseover="this.style.backgroundColor='#e5e7eb'; this.style.borderColor='#cbd5e1';"
+                                onmouseout="this.style.backgroundColor='#f3f4f6'; this.style.borderColor='#cbd5e1';"
+                                title="ជម្រើសសកម្មភាព">⋯</button>
                     `;
                 }
 
@@ -304,9 +505,7 @@ function stylePaginationButton(btn, isDisabled, isActive = false) {
  * ៤. លុបប្រតិបត្តិការដោយសុវត្ថិភាព (Soft Delete UI Action with Version archiving)
  */
 async function deleteTransaction(transactionId) {
-    if (!confirm("តើលោកអ្នកពិតជាចង់លុបប្រតិបត្តិការនេះមែនទេ? សកម្មភាពនេះនឹងត្រូវបានចម្លងទុកបណ្ណសារសវនកម្ម។")) {
-        return;
-    }
+    showCustomConfirm("តើលោកអ្នកពិតជាចង់លុបប្រតិបត្តិការនេះមែនទេ? សកម្មភាពនេះនឹងត្រូវបានចម្លងទុកបណ្ណសារសវនកម្ម។", async () => {
 
     try {
         const response = await fetch(API_TRANSACTIONS_URL, {
@@ -318,16 +517,17 @@ async function deleteTransaction(transactionId) {
         const result = await response.json();
 
         if (result.status === 'success') {
-            alert('🎉 ' + result.message);
+            showToast(result.message, 'success');
             loadTransactionsTable(currentTxPage, txLimitPerPage, currentFilterDate);
             updateDashboardMetricsUI();
         } else {
-            alert('❌ ' + result.message);
+            showToast(result.message, 'error');
         }
     } catch (error) {
         console.error('Error deleting transaction:', error);
-        alert('❌ បរាជ័យក្នុងការតភ្ជាប់ទៅកាន់ម៉ាស៊ីនបម្រើ!');
+        showToast('បរាជ័យក្នុងការតភ្ជាប់ទៅកាន់ម៉ាស៊ីនបម្រើ!', 'error');
     }
+    });
 }
 
 /**
@@ -442,9 +642,7 @@ async function loadAuditHistoryTable() {
  * ៨. មុខងារស្តារប្រតិបត្តិការដែលលុបចោលឡើងវិញ (Restore Deleted Transaction)
  */
 async function restoreTransaction(transactionId) {
-    if (!confirm("តើលោកអ្នកពិតជាចង់ស្តារប្រតិបត្តិការនេះឡើងវិញទៅកាន់ Dashboard ដែរឬទេ?")) {
-        return;
-    }
+    showCustomConfirm("តើលោកអ្នកពិតជាចង់ស្តារប្រតិបត្តិការនេះឡើងវិញទៅកាន់ Dashboard ដែរឬទេ?", async () => {
 
     try {
         const response = await fetch(`${API_TRANSACTIONS_URL}?action=restore`, {
@@ -456,7 +654,7 @@ async function restoreTransaction(transactionId) {
         const result = await response.json();
 
         if (result.status === 'success') {
-            alert('🎉 ' + result.message);
+            showToast(result.message, 'success');
             // ហៅឱ្យរៀបចំតារាងប្រវត្តិសវនកម្មឡើងវិញ
             loadAuditHistoryTable();
             // ធ្វើបច្ចុប្បន្នភាព Dashboard Metrics ផងដែរ ប្រសិនបើមាន Widgets
@@ -464,12 +662,13 @@ async function restoreTransaction(transactionId) {
                 updateDashboardMetricsUI();
             }
         } else {
-            alert('❌ ' + result.message);
+            showToast(result.message, 'error');
         }
     } catch (error) {
         console.error('Error restoring transaction:', error);
-        alert('❌ មានបញ្ហាក្នុងការតភ្ជាប់ទៅកាន់ Server!');
+        showToast('មានបញ្ហាក្នុងការតភ្ជាប់ទៅកាន់ Server!', 'error');
     }
+    });
 }
 
 /**
@@ -565,16 +764,16 @@ function createEditModalMarkup() {
             const result = await response.json();
 
             if (result.status === 'success') {
-                alert('🎉 ' + result.message);
+                showToast(result.message, 'success');
                 closeEditTransactionModal();
                 loadTransactionsTable(currentTxPage, txLimitPerPage, currentFilterDate);
                 updateDashboardMetricsUI();
             } else {
-                alert('❌ ' + result.message);
+                showToast(result.message, 'error');
             }
         } catch (error) {
             console.error('Error updating transaction:', error);
-            alert('❌ មានបញ្ហាក្នុងការតភ្ជាប់ទៅកាន់ Server!');
+            showToast('មានបញ្ហាក្នុងការតភ្ជាប់ទៅកាន់ Server!', 'error');
         }
     });
 }
@@ -653,16 +852,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const result = await response.json();
 
                 if (result.status === 'success') {
-                    alert('🎉 ' + result.message);
+                    showToast(result.message, 'success');
                     transactionForm.reset();
                     loadTransactionsTable(1, txLimitPerPage, currentFilterDate);
                     updateDashboardMetricsUI();
                 } else {
-                    alert('❌ ' + result.message);
+                    showToast(result.message, 'error');
                 }
             } catch (error) {
                 console.error('Error adding transaction:', error);
-                alert('❌ មានបញ្ហាក្នុងការតភ្ជាប់ទៅកាន់ Server!');
+                showToast('មានបញ្ហាក្នុងការតភ្ជាប់ទៅកាន់ Server!', 'error');
             }
         });
     }
