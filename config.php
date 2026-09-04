@@ -14,10 +14,10 @@ define('DB_NAME', 'payment_db');
 
 // គោលការណ៍សិទ្ធិអប្បបរមា (Least Privilege)៖ ក្នុងសង្វាក់ផលិតកម្ម (Production) 
 // ត្រូវជៀសវាងការប្រើប្រាស់គណនី 'root'។ គួរបង្កើតគណនីដែលមានសិទ្ធិត្រឹមកម្រិតចាំបាច់។
-// define('DB_USER', 'payment_admin'); 
-// define('DB_PASS', 'KhmerSecurePass2026!');
-define('DB_USER', 'root'); 
-define('DB_PASS', ''); // ទុកជាប្រអប់ទទេគ្មានលេខកូដ
+define('DB_USER', 'payment_admin'); 
+define('DB_PASS', 'KhmerSecurePass2026!');
+// define('DB_USER', 'root'); 
+// define('DB_PASS', ''); // ទុកជាប្រអប់ទទេគ្មានលេខកូដ
 
 
 // --- ២. ការកំណត់សន្តិសុខប្រព័ន្ធ (Security Configuration) ---
