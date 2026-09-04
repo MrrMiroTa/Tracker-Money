@@ -1,7 +1,12 @@
 <?php
-// pdf-v3.php
-// Upgraded PDF Export Service with RBAC, Soft-Delete Filtering, Date Filters, Dual-Currency Support, and Audit Logging
+// pdf-v4.php
+// Upgraded PDF Export Service with Robust Fallback, Error Reporting, RBAC, Soft-Delete Filtering, Date Filters, Dual-Currency Support, and Audit Logging
 // Designed for Khmer Payment Tracker and Financial Management System
+
+// Enable error reporting for active debugging on local server (prevents "show nothing" on error)
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 
 // 1. Initialize Session and Central Configurations
 if (session_status() === PHP_SESSION_NONE) {
@@ -58,7 +63,7 @@ try {
     $transactions = $stmt->fetchAll();
 } catch (PDOException $e) {
     error_log("Database error in pdf.php: " . $e->getMessage());
-    die("មានបញ្ហាបច្ចេកទេសក្នុងការទាញយកទិន្នន័យ។");
+    die("មានបញ្ហាបច្ចេកទេសក្នុងការទាញយកទិន្នន័យ៖ " . $e->getMessage());
 }
 
 // 4. Record Action in Security Audit Logs (Audit Trail Best Practice)
@@ -121,51 +126,57 @@ if (!class_exists('FPDF') && file_exists('tfpdf/tfpdf.php')) {
 }
 
 // Create Instance of PDF engine (If class is available)
-if (class_exists('PDF_Engine') && method_exists('PDF_Engine', 'AddPage')) {
-    $pdf = new PDF_Engine();
-    $pdf->AliasNbPages();
-    $pdf->AddPage();
-    
-    // Add Unicode Khmer Font support if using tFPDF
-    if (method_exists($pdf, 'AddFont') && file_exists('tfpdf/font/unifont/KantumruyPro-Regular.ttf')) {
-        $pdf->AddFont('Kantumruy', '', 'KantumruyPro-Regular.ttf', true);
-        $pdf->SetFont('Kantumruy', '', 12);
-    } else {
-        $pdf->SetFont('Arial', '', 10);
-    }
-    
-    // Title Banner
-    $pdf->Cell(0, 10, "Payment Tracker Financial Report", 0, 1, 'C');
-    $subtitle = "Date: " . date('Y-m-d H:i:s') . " | Exported by: " . $username . " (" . strtoupper($user_role) . ")";
-    if (!empty($filter_date)) {
-        $subtitle .= " | Filtered Date: " . $filter_date;
-    }
-    $pdf->Cell(0, 5, $subtitle, 0, 1, 'C');
-    $pdf->Ln(10);
-    
-    // Header Table Columns
-    $pdf->Cell(30, 8, 'Date', 1);
-    $pdf->Cell(60, 8, 'Description', 1);
-    $pdf->Cell(30, 8, 'Created By', 1);
-    $pdf->Cell(20, 8, 'Type', 1);
-    $pdf->Cell(25, 8, 'Amount (KHR)', 1);
-    $pdf->Cell(25, 8, 'Amount (USD)', 1);
-    $pdf->Ln();
-    
-    // Rows
-    foreach ($transactions as $row) {
-        $pdf->Cell(30, 6, $row['date'], 1);
-        $pdf->Cell(60, 6, substr($row['description'], 0, 30), 1);
-        $pdf->Cell(30, 6, $row['creator_name'] ?? ('User ID: ' . $row['user_id']), 1);
-        $pdf->Cell(20, 6, ucfirst($row['type']), 1);
-        $pdf->Cell(25, 6, ($row['currency'] === 'KHR' ? number_format($row['amount']) . ' KHR' : '-'), 1);
-        $pdf->Cell(25, 6, ($row['currency'] === 'USD' ? '$' . number_format($row['amount'], 2) : '-'), 1);
+if (class_exists('PDF_Engine')) {
+    if (method_exists('PDF_Engine', 'AddPage')) {
+        // This runs if FPDF / tFPDF is found on the server
+        $pdf = new PDF_Engine();
+        $pdf->AliasNbPages();
+        $pdf->AddPage();
+        
+        // Add Unicode Khmer Font support if using tFPDF
+        if (method_exists($pdf, 'AddFont') && file_exists('tfpdf/font/unifont/KantumruyPro-Regular.ttf')) {
+            $pdf->AddFont('Kantumruy', '', 'KantumruyPro-Regular.ttf', true);
+            $pdf->SetFont('Kantumruy', '', 12);
+        } else {
+            $pdf->SetFont('Arial', '', 10);
+        }
+        
+        // Title Banner
+        $pdf->Cell(0, 10, "Payment Tracker Financial Report", 0, 1, 'C');
+        $subtitle = "Date: " . date('Y-m-d H:i:s') . " | Exported by: " . $username . " (" . strtoupper($user_role) . ")";
+        if (!empty($filter_date)) {
+            $subtitle .= " | Filtered Date: " . $filter_date;
+        }
+        $pdf->Cell(0, 5, $subtitle, 0, 1, 'C');
+        $pdf->Ln(10);
+        
+        // Header Table Columns
+        $pdf->Cell(30, 8, 'Date', 1);
+        $pdf->Cell(60, 8, 'Description', 1);
+        $pdf->Cell(30, 8, 'Created By', 1);
+        $pdf->Cell(20, 8, 'Type', 1);
+        $pdf->Cell(25, 8, 'Amount (KHR)', 1);
+        $pdf->Cell(25, 8, 'Amount (USD)', 1);
         $pdf->Ln();
+        
+        // Rows
+        foreach ($transactions as $row) {
+            $pdf->Cell(30, 6, $row['date'], 1);
+            $pdf->Cell(60, 6, substr($row['description'], 0, 30), 1);
+            $pdf->Cell(30, 6, $row['creator_name'] ?? ('User ID: ' . $row['user_id']), 1);
+            $pdf->Cell(20, 6, ucfirst($row['type']), 1);
+            $pdf->Cell(25, 6, ($row['currency'] === 'KHR' ? number_format($row['amount']) . ' KHR' : '-'), 1);
+            $pdf->Cell(25, 6, ($row['currency'] === 'USD' ? '$' . number_format($row['amount'], 2) : '-'), 1);
+            $pdf->Ln();
+        }
+        
+        // Output PDF File
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="payment_report_' . date('Ymd') . '.pdf"');
+        $pdf->Output('I');
+    } else {
+        // Fallback option: Instantiate CSV download if tFPDF class cannot add pages
+        $pdf = new PDF_Engine();
     }
-    
-    // Output PDF File
-    header('Content-Type: application/pdf');
-    header('Content-Disposition: attachment; filename="payment_report_' . date('Ymd') . '.pdf"');
-    $pdf->Output('I');
 }
 ?>

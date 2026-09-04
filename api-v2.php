@@ -21,21 +21,14 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 // --- 2. DATABASE CONNECTION (Using PDO for SQL Injection Prevention) ---
+require_once 'config.php';
+
 function getDBConnection() {
-    $host = "localhost";
-    $db_name = "payment_db";
-    $username = "root";
-    $password = "";
-    
     try {
-        $db = new PDO("mysql:host={$host};dbname={$db_name};charset=utf8mb4", $username, $password);
-        $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-        return $db;
-    } catch (PDOException $e) {
-        // Return a mocked connection array for sandbox environments without live MySQL, 
-        // allowing code logic verification.
-        return null; 
+        return getSecureDBConnection();
+    } catch (Exception $e) {
+        error_log("api-v2.php failed to get secure db connection: " . $e->getMessage());
+        return null;
     }
 }
 
@@ -171,36 +164,42 @@ function handleLogin($db, $simulated) {
         return;
     }
 
-    // Live Database Authentication
-    $stmt = $db->prepare("SELECT * FROM users WHERE username = ? LIMIT 1");
-    $stmt->execute([$username]);
-    $user = $stmt->fetch();
+    try {
+        // Live Database Authentication
+        $stmt = $db->prepare("SELECT * FROM users WHERE username = ? LIMIT 1");
+        $stmt->execute([$username]);
+        $user = $stmt->fetch();
 
-    if ($user && password_verify($password, $user['password_hash'])) {
-        if ($user['status'] !== 'active') {
-            http_response_code(403);
-            echo json_encode(["status" => "error", "message" => "Your account is currently suspended or pending."]);
-            return;
+        if ($user && password_verify($password, $user['password_hash'])) {
+            if ($user['status'] !== 'active') {
+                http_response_code(403);
+                echo json_encode(["status" => "error", "message" => "Your account is currently suspended or pending."]);
+                return;
+            }
+
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['username'] = $user['username'];
+            $_SESSION['role'] = $user['role'];
+            
+            logAdminActivity($db, 'LOGIN_SUCCESS', null, "Successfully signed in.");
+
+            echo json_encode([
+                "status" => "success", 
+                "message" => "Login Successful", 
+                "user" => [
+                    "id" => $user['id'],
+                    "username" => $user['username'],
+                    "role" => $user['role']
+                ]
+            ]);
+        } else {
+            http_response_code(401);
+            echo json_encode(["status" => "error", "message" => "Invalid username or password."]);
         }
-
-        $_SESSION['user_id'] = $user['id'];
-        $_SESSION['username'] = $user['username'];
-        $_SESSION['role'] = $user['role'];
-        
-        logAdminActivity($db, 'LOGIN_SUCCESS', null, "Successfully signed in.");
-
-        echo json_encode([
-            "status" => "success", 
-            "message" => "Login Successful", 
-            "user" => [
-                "id" => $user['id'],
-                "username" => $user['username'],
-                "role" => $user['role']
-            ]
-        ]);
-    } else {
-        http_response_code(401);
-        echo json_encode(["status" => "error", "message" => "Invalid username or password."]);
+    } catch (PDOException $e) {
+        error_log("Login database query failed: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(["status" => "error", "message" => "ការស៊ើបអង្កេតទិន្នន័យបានបរាជ័យ។ សូមប្រាកដថាបានបង្កើតតារាង users និងបញ្ចូលទិន្នន័យ (Seed) ក្នុង Database រួចរាល់។ (Database query failed)"]);
     }
 }
 
