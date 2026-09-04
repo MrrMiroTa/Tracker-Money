@@ -1,6 +1,6 @@
 <?php
-// pdf.php
-// Upgraded PDF Export Service with RBAC, Dual-Currency Support, and Audit Logging
+// pdf-v3.php
+// Upgraded PDF Export Service with RBAC, Soft-Delete Filtering, Date Filters, Dual-Currency Support, and Audit Logging
 // Designed for Khmer Payment Tracker and Financial Management System
 
 // 1. Initialize Session and Central Configurations
@@ -13,7 +13,6 @@ require_once 'config.php';
 // 2. Strict Security Guards (RBAC & Principle of Least Privilege)
 // Ensure the user is authenticated
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role'])) {
-    // If it's an API/ajax request, return JSON; otherwise redirect to login
     if (isset($_GET['format']) && $_GET['format'] === 'json') {
         http_response_code(401);
         echo json_encode(["status" => "error", "message" => "សូមចូលប្រើប្រាស់ប្រព័ន្ធជាមុនសិន។ (Unauthorized)"]);
@@ -30,17 +29,25 @@ $username = $_SESSION['username'] ?? 'Unknown';
 // Establish Secure Database Connection
 $db = getSecureDBConnection();
 
-// 3. Define Scoped Access (Least Privilege)
-// Admins & Super Admins can export all records. Normal users can ONLY export their own records.
+// 3. Define Scoped Access & Filters (Least Privilege)
+// Filter out soft-deleted transactions (is_deleted = 0) and filter by date if provided
 $queryStr = "SELECT t.*, u.username as creator_name 
              FROM transactions t 
-             LEFT JOIN users u ON t.user_id = u.id";
+             LEFT JOIN users u ON t.user_id = u.id
+             WHERE t.is_deleted = 0";
 $params = [];
 
+// Scoped Access: Admins & Super Admins see all active records; regular users see only their own
 if ($user_role !== 'super_admin' && $user_role !== 'admin') {
-    // Restrict standard users to their own data (Scoped Access)
-    $queryStr .= " WHERE t.user_id = :user_id";
+    $queryStr .= " AND t.user_id = :user_id";
     $params[':user_id'] = $user_id;
+}
+
+// Support Date Filter (e.g., ?date=2026-08-20) to match the filtered frontend view
+$filter_date = isset($_GET['date']) ? trim($_GET['date']) : '';
+if (!empty($filter_date)) {
+    $queryStr .= " AND DATE(t.date) = :filter_date";
+    $params[':filter_date'] = $filter_date;
 }
 
 $queryStr .= " ORDER BY t.date DESC";
@@ -61,6 +68,9 @@ try {
         VALUES (:user_id, 'EXPORT_PDF_REPORT', :details, :ip_address)
     ");
     $details = "Exported financial transaction PDF report. Scope: " . ($user_role === 'super_admin' || $user_role === 'admin' ? "ALL_RECORDS" : "OWN_RECORDS_ONLY");
+    if (!empty($filter_date)) {
+        $details .= " | Filtered Date: " . $filter_date;
+    }
     $ip_address = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
     
     $logStmt->execute([
@@ -69,25 +79,28 @@ try {
         ':ip_address' => $ip_address
     ]);
 } catch (PDOException $e) {
-    // Log privately but don't halt report generation
     error_log("Failed to write audit log in pdf.php: " . $e->getMessage());
 }
 
 // 5. PDF Generation Engine
-// We use tFPDF / FPDF for PDF generation. We include a standard fallback to ensure usability.
+// Use tFPDF / FPDF for PDF generation with a robust CSV fallback
 if (!class_exists('FPDF') && file_exists('tfpdf/tfpdf.php')) {
     require_once 'tfpdf/tfpdf.php';
     class PDF_Engine extends tFPDF {}
 } elseif (class_exists('FPDF')) {
     class PDF_Engine extends FPDF {}
 } else {
-    // Fallback Mock class if FPDF is not yet configured on the local server
+    // Fallback Mock class if FPDF library is not yet configured on the local server
     class PDF_Engine {
         public function __construct() {
-            // If FPDF library is missing on local server, provide a highly formatted CSV download option
             header('Content-Type: text/csv; charset=utf-8');
-            header('Content-Disposition: attachment; filename=payment_report_' . date('Y-m-d') . '.csv');
-            echo "\xEF\xBB\xBF"; // UTF-8 BOM for Excel Khmer text rendering
+            $filename = 'payment_report_' . date('Y-m-d');
+            global $filter_date;
+            if (!empty($filter_date)) {
+                $filename .= '_filtered_' . $filter_date;
+            }
+            header('Content-Disposition: attachment; filename=' . $filename . '.csv');
+            echo "\xEF\xBB\xBF"; // UTF-8 BOM for Khmer encoding in Excel
             $output = fopen('php://output', 'w');
             fputcsv($output, ['កាលបរិច្ឆេទ', 'បរិយាយ', 'អ្នកបន្ថែម', 'ប្រភេទ', 'ចំនួនទឹកប្រាក់ (រៀល)', 'ចំនួនទឹកប្រាក់ (ដុល្លារ)']);
             global $transactions;
@@ -123,7 +136,11 @@ if (class_exists('PDF_Engine') && method_exists('PDF_Engine', 'AddPage')) {
     
     // Title Banner
     $pdf->Cell(0, 10, "Payment Tracker Financial Report", 0, 1, 'C');
-    $pdf->Cell(0, 5, "Date: " . date('Y-m-d H:i:s') . " | Exported by: " . $username . " (" . strtoupper($user_role) . ")", 0, 1, 'C');
+    $subtitle = "Date: " . date('Y-m-d H:i:s') . " | Exported by: " . $username . " (" . strtoupper($user_role) . ")";
+    if (!empty($filter_date)) {
+        $subtitle .= " | Filtered Date: " . $filter_date;
+    }
+    $pdf->Cell(0, 5, $subtitle, 0, 1, 'C');
     $pdf->Ln(10);
     
     // Header Table Columns
