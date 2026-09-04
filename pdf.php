@@ -1,6 +1,6 @@
 <?php
-// pdf-v6.php
-// Upgraded PDF & CSV Export Service with Professional Styling, Scoped RBAC, Zebra Rows, colored headers, and Summary Cards
+// pdf-v8.php
+// Upgraded PDF & CSV Export Service with Professional Styling, Dynamic Filename (Serial No + Timestamp), Zebra Rows, and Summary Cards
 // Designed for Khmer Payment Tracker and Financial Management System
 
 // 1. Initialize Session and Central Configurations
@@ -86,8 +86,10 @@ foreach ($transactions as $row) {
 $bal_khr = $total_income_khr - $total_expense_khr;
 $bal_usd = $total_income_usd - $total_expense_usd;
 
-// 5. Record Action in Security Audit Logs
+// 5. Generate Dynamic Serial Number and Record Action in Security Audit Logs
+$export_count = 1;
 try {
+    // Write log entry first to keep audit trail consistent
     $logStmt = $db->prepare("
         INSERT INTO audit_logs (user_id, action, details, ip_address) 
         VALUES (:user_id, 'EXPORT_PDF_REPORT', :details, :ip_address)
@@ -103,9 +105,22 @@ try {
         ':details' => $details,
         ':ip_address' => $ip_address
     ]);
+
+    // Query total previous EXPORT_PDF_REPORT records to generate sequential serial number (No.)
+    $countStmt = $db->prepare("SELECT COUNT(*) FROM audit_logs WHERE action = 'EXPORT_PDF_REPORT'");
+    $countStmt->execute();
+    $export_count = intval($countStmt->fetchColumn());
+    if ($export_count < 1) {
+        $export_count = 1;
+    }
 } catch (PDOException $e) {
-    error_log("Failed to write audit log in pdf.php: " . $e->getMessage());
+    error_log("Failed to write audit log or count exports in pdf.php: " . $e->getMessage());
+    $export_count = rand(100, 999); // Fallback secure randomized ID if DB audit log fails
 }
+
+// Format sequential number (e.g., 001, 002, 015) and current date time when clicked
+$serial_str = str_pad($export_count, 3, '0', STR_PAD_LEFT);
+$current_time_str = date('Y-m-d_H-i-s');
 
 // 6. PDF Generation Engine with Fallbacks
 $tfpdf_loaded = false;
@@ -116,7 +131,7 @@ if (file_exists('tfpdf/tfpdf.php')) {
         class PDF_Engine extends tFPDF {
             function Footer() {
                 $this->SetY(-15);
-                if (file_exists('tfpdf/font/unifont/KantumruyPro-VariableFont_wght.ttf')) {
+                if (file_exists('tfpdf/font/unifont/KantumruyPro-Regular.ttf')) {
                     $this->SetFont('Kantumruy', '', 8);
                 } else {
                     $this->SetFont('Arial', 'I', 8);
@@ -129,16 +144,11 @@ if (file_exists('tfpdf/tfpdf.php')) {
 }
 
 if (!$tfpdf_loaded) {
-    // Fallback Mock class to CSV download
+    // Fallback Mock class to CSV download with sequential format
     class PDF_Engine {
-        public function __construct() {
+        public function __construct($filename) {
             header('Content-Type: text/csv; charset=utf-8');
-            $filename = 'payment_report_' . date('Y-m-d');
-            global $filter_date;
-            if (!empty($filter_date)) {
-                $filename .= '_filtered_' . $filter_date;
-            }
-            header('Content-Disposition: attachment; filename=' . $filename . '.csv');
+            header('Content-Disposition: attachment; filename=' . str_replace('.pdf', '.csv', $filename));
             echo "\xEF\xBB\xBF"; // UTF-8 BOM for Khmer encoding in Excel
             $output = fopen('php://output', 'w');
             fputcsv($output, ['កាលបរិច្ឆេទ', 'បរិយាយ', 'អ្នកបន្ថែម', 'ប្រភេទ', 'ចំនួនទឹកប្រាក់ (រៀល)', 'ចំនួនទឹកប្រាក់ (ដុល្លារ)']);
@@ -159,14 +169,22 @@ if (!$tfpdf_loaded) {
     }
 }
 
+// Generate the unique dynamic filename
+$pdf_filename = 'payment_report_No_' . $serial_str . '_' . $current_time_str . '.pdf';
+
+if (!$tfpdf_loaded) {
+    $pdf = new PDF_Engine($pdf_filename);
+    exit;
+}
+
 if (class_exists('PDF_Engine') && $tfpdf_loaded) {
     $pdf = new PDF_Engine();
     $pdf->AliasNbPages();
     $pdf->AddPage();
     
-    $has_kantumruy = file_exists('tfpdf/font/unifont/KantumruyPro-VariableFont_wght.ttf');
+    $has_kantumruy = file_exists('tfpdf/font/unifont/KantumruyPro-Regular.ttf');
     if ($has_kantumruy) {
-        $pdf->AddFont('Kantumruy', '', 'KantumruyPro-VariableFont_wght.ttf', true);
+        $pdf->AddFont('Kantumruy', '', 'KantumruyPro-Regular.ttf', true);
         $pdf->SetFont('Kantumruy', '', 11);
     } else {
         $pdf->SetFont('Arial', '', 10);
@@ -203,13 +221,13 @@ if (class_exists('PDF_Engine') && $tfpdf_loaded) {
     $pdf->SetTextColor(107, 114, 128); // Muted gray
     if ($has_kantumruy) {
         $pdf->SetFont('Kantumruy', '', 8.5);
-        $subtitle = "កាលបរិច្ឆេទបញ្ចេញរបាយការណ៍៖ " . date('Y-m-d H:i:s') . " | រៀបចំដោយ៖ " . $username . " (" . strtoupper($user_role) . ")";
+        $subtitle = "លេខរៀងទាញយក៖ No. " . $serial_str . " | កាលបរិច្ឆេទបញ្ចេញ៖ " . date('Y-m-d H:i:s') . " | រៀបចំដោយ៖ " . $username;
         if (!empty($filter_date)) {
             $subtitle .= " | ថ្ងៃដែលបានចម្រោះ៖ " . $filter_date;
         }
     } else {
         $pdf->SetFont('Arial', 'I', 8.5);
-        $subtitle = "Date: " . date('Y-m-d H:i:s') . " | Exported by: " . $username . " (" . strtoupper($user_role) . ")";
+        $subtitle = "Export No: No. " . $serial_str . " | Date: " . date('Y-m-d H:i:s') . " | Exported by: " . $username;
         if (!empty($filter_date)) {
             $subtitle .= " | Filtered Date: " . $filter_date;
         }
@@ -217,7 +235,7 @@ if (class_exists('PDF_Engine') && $tfpdf_loaded) {
     $pdf->Cell(0, 6, $subtitle, 0, 1, 'C');
     $pdf->Ln(6);
 
-    // 3. FINANCIAL SUMMARY CARDS BLOCK (Beautiful Dashboard inside PDF - WITHOUT EMOJIS TO PREVENT ENCODING BUGS)
+    // 3. FINANCIAL SUMMARY CARDS BLOCK
     $pdf->SetDrawColor(226, 232, 240); // Card border
     $pdf->SetLineWidth(0.3);
 
@@ -226,7 +244,7 @@ if (class_exists('PDF_Engine') && $tfpdf_loaded) {
     $pdf->Rect(10, 42, 60, 25, 'DF');
     $pdf->SetXY(12, 44);
     $pdf->SetTextColor(15, 118, 110); // Emerald text
-    $pdf->SetFont($has_kantumruy ? 'Kantumruy' : 'Arial', 'B', 9);
+    $pdf->SetFont($has_kantumruy ? 'Kantumruy' : 'Arial', '', 9); // Use Regular to prevent 'Undefined font kantumruy B'
     $pdf->Cell(56, 5, $has_kantumruy ? "សមតុល្យសរុប (Total Balance)" : "Total Balance", 0, 1);
     $pdf->SetX(12);
     $pdf->SetTextColor($bal_khr >= 0 ? 15 : $color_danger[0], $bal_khr >= 0 ? 118 : $color_danger[1], $bal_khr >= 0 ? 110 : $color_danger[2]);
@@ -240,7 +258,7 @@ if (class_exists('PDF_Engine') && $tfpdf_loaded) {
     $pdf->Rect(75, 42, 60, 25, 'DF');
     $pdf->SetXY(77, 44);
     $pdf->SetTextColor(21, 128, 61); // Green text
-    $pdf->SetFont($has_kantumruy ? 'Kantumruy' : 'Arial', 'B', 9);
+    $pdf->SetFont($has_kantumruy ? 'Kantumruy' : 'Arial', '', 9);
     $pdf->Cell(56, 5, $has_kantumruy ? "ចំណូលសរុប (Total Income)" : "Total Income", 0, 1);
     $pdf->SetX(77);
     $pdf->SetFont($has_kantumruy ? 'Kantumruy' : 'Arial', '', 9.5);
@@ -253,7 +271,7 @@ if (class_exists('PDF_Engine') && $tfpdf_loaded) {
     $pdf->Rect(140, 42, 60, 25, 'DF');
     $pdf->SetXY(142, 44);
     $pdf->SetTextColor(185, 28, 28); // Red text
-    $pdf->SetFont($has_kantumruy ? 'Kantumruy' : 'Arial', 'B', 9);
+    $pdf->SetFont($has_kantumruy ? 'Kantumruy' : 'Arial', '', 9);
     $pdf->Cell(56, 5, $has_kantumruy ? "ចំណាយសរុប (Total Expense)" : "Total Expense", 0, 1);
     $pdf->SetX(142);
     $pdf->SetFont($has_kantumruy ? 'Kantumruy' : 'Arial', '', 9.5);
@@ -264,7 +282,7 @@ if (class_exists('PDF_Engine') && $tfpdf_loaded) {
     $pdf->Ln(15);
     $pdf->SetY(75);
 
-    // 4. TRANSACTION TABLE HEADERS WITH DEEP BLUE STYLE
+    // 4. TRANSACTION TABLE HEADERS
     $pdf->SetFillColor($color_primary[0], $color_primary[1], $color_primary[2]);
     $pdf->SetTextColor(255, 255, 255); // White text
     $pdf->SetDrawColor(226, 232, 240); // Table grid line color
@@ -301,7 +319,6 @@ if (class_exists('PDF_Engine') && $tfpdf_loaded) {
     $pdf->SetFont($has_kantumruy ? 'Kantumruy' : 'Arial', '', 9);
 
     foreach ($transactions as $row) {
-        // Set light zebra background color
         if ($fill) {
             $pdf->SetFillColor($color_bg_light[0], $color_bg_light[1], $color_bg_light[2]);
         } else {
@@ -311,7 +328,7 @@ if (class_exists('PDF_Engine') && $tfpdf_loaded) {
         // Cell 1: Date and Time
         $pdf->Cell($w_date, 8, $row['date'], 1, 0, 'C', true);
 
-        // Cell 2: Description (Safe trim if too long)
+        // Cell 2: Description
         $desc_text = $row['description'];
         if (mb_strlen($desc_text, 'utf-8') > 22) {
             $desc_text = mb_substr($desc_text, 0, 20, 'utf-8') . '...';
@@ -325,7 +342,7 @@ if (class_exists('PDF_Engine') && $tfpdf_loaded) {
         }
         $pdf->Cell($w_user, 8, $creator, 1, 0, 'C', true);
 
-        // Cell 4: Type (Colored: Green for Income, Red for Expense)
+        // Cell 4: Type
         if ($row['type'] === 'income') {
             $pdf->SetTextColor($color_success[0], $color_success[1], $color_success[2]);
             $pdf->Cell($w_type, 8, $has_kantumruy ? 'ចំណូល' : 'Income', 1, 0, 'C', true);
@@ -333,10 +350,9 @@ if (class_exists('PDF_Engine') && $tfpdf_loaded) {
             $pdf->SetTextColor($color_danger[0], $color_danger[1], $color_danger[2]);
             $pdf->Cell($w_type, 8, $has_kantumruy ? 'ចំណាយ' : 'Expense', 1, 0, 'C', true);
         }
-        // Reset Dark Text Color
         $pdf->SetTextColor($color_text_dark[0], $color_text_dark[1], $color_text_dark[2]);
 
-        // Cell 5: Amount KHR (Use Unified khr_symbol to prevent encoding error áŸ›)
+        // Cell 5: Amount KHR
         $khr_text = ($row['currency'] === 'KHR') ? number_format($row['amount']) . $khr_symbol : '-';
         $pdf->Cell($w_khr, 8, $khr_text, 1, 0, 'R', true);
 
@@ -344,12 +360,12 @@ if (class_exists('PDF_Engine') && $tfpdf_loaded) {
         $usd_text = ($row['currency'] === 'USD') ? '$' . number_format($row['amount'], 2) : '-';
         $pdf->Cell($w_usd, 8, $usd_text, 1, 1, 'R', true);
 
-        $fill = !$fill; // Toggle zebra row fill
+        $fill = !$fill;
     }
 
-    // 6. Output PDF File
+    // 6. Force Dynamic Download
     header('Content-Type: application/pdf');
-    header('Content-Disposition: attachment; filename="payment_report_' . date('Ymd') . '.pdf"');
-    $pdf->Output('D');
+    header('Content-Disposition: attachment; filename="' . $pdf_filename . '"');
+    $pdf->Output('D', $pdf_filename); // 'D' destination forces direct download in browser
 }
 ?>

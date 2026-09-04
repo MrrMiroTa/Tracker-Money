@@ -8,7 +8,7 @@
 *           Tycho Veltmeijer <tfpdf@tychoveltmeijer.nl> (versions 1.30+)       *
 * License:  LGPL                                                               *
 *******************************************************************************/
-
+require_once(dirname(__FILE__) . '/font/unifont/ttfonts.php');
 class tFPDF
 {
 const VERSION = '1.33';
