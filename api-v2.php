@@ -1,10 +1,10 @@
 <?php
 /**
- * api-v2.php - Secure User Authorization and Admin Management API
+ * api-v2.php - Secure User Authorization and Admin Management API with Built-in MFA Support
  * Part of the Khmer Payment Tracker and Financial Management System
  * 
  * This file implements Role-Based Access Control (RBAC), Multi-Admin Approval (Dual Control),
- * and security-hardened authentication flows to safeguard administrator elevations.
+ * and security-hardened authentication flows supporting 2-Step Verification (MFA).
  */
 
 header("Content-Type: application/json; charset=UTF-8");
@@ -42,7 +42,6 @@ function logAdminActivity($db, $action, $target_user_id = null, $details = '') {
             $stmt = $db->prepare("INSERT INTO audit_logs (user_id, action, target_user_id, details, ip_address) VALUES (?, ?, ?, ?, ?)");
             $stmt->execute([$userId, $action, $target_user_id, $details, $ip]);
         } catch (Exception $e) {
-            // Silence log write errors to prevent API crashes, but record to PHP system log
             error_log("Audit log failed: " . $e->getMessage());
         }
     }
@@ -52,11 +51,13 @@ function logAdminActivity($db, $action, $target_user_id = null, $details = '') {
 $role_permissions = [
     'super_admin' => [
         'view_dashboard', 'add_transaction', 'edit_transaction', 'delete_transaction',
-        'view_users', 'add_admin_request', 'approve_admin', 'delete_user', 'view_audit_logs'
+        'view_users', 'add_admin_request', 'approve_admin', 'delete_user', 'view_audit_logs',
+        'create_user', 'reset_password'
     ],
     'admin' => [
         'view_dashboard', 'add_transaction', 'edit_transaction',
-        'view_users', 'add_admin_request' // Cannot approve_admin or delete_user
+        'view_users', 'add_admin_request',
+        'create_user', 'reset_password'
     ],
     'user' => [
         'view_dashboard', 'add_transaction'
@@ -93,7 +94,6 @@ $db = getDBConnection();
 $request_method = $_SERVER['REQUEST_METHOD'];
 $action = isset($_GET['action']) ? $_GET['action'] : '';
 
-// For testing purposes in environment without active DB connection, provide simulated responses
 $is_simulated = ($db === null);
 
 switch ($request_method) {
@@ -104,6 +104,10 @@ switch ($request_method) {
             handleRequestAdminPromotion($db, $is_simulated);
         } elseif ($action === 'approve_admin') {
             handleApproveAdminPromotion($db, $is_simulated);
+        } elseif ($action === 'create_user') {
+            handleCreateUser($db, $is_simulated);
+        } elseif ($action === 'reset_password') {
+            handleResetPassword($db, $is_simulated);
         } elseif ($action === 'logout') {
             handleLogout();
         } else {
@@ -144,9 +148,9 @@ function handleLogin($db, $simulated) {
 
     $username = trim($data['username']);
     $password = $data['password'];
+    $mfa_code = isset($data['mfa_code']) ? trim($data['mfa_code']) : '';
 
     if ($simulated) {
-        // Mock login for sandbox/local testing
         if ($username === 'admin_sophors' && $password === 'admin123') {
             $_SESSION['user_id'] = 2;
             $_SESSION['username'] = 'admin_sophors';
@@ -165,7 +169,6 @@ function handleLogin($db, $simulated) {
     }
 
     try {
-        // Live Database Authentication
         $stmt = $db->prepare("SELECT * FROM users WHERE username = ? LIMIT 1");
         $stmt->execute([$username]);
         $user = $stmt->fetch();
@@ -175,6 +178,22 @@ function handleLogin($db, $simulated) {
                 http_response_code(403);
                 echo json_encode(["status" => "error", "message" => "Your account is currently suspended or pending."]);
                 return;
+            }
+
+            // --- 2-STEP VERIFICATION (MFA) CHECK ---
+            if (!empty($user['mfa_secret'])) {
+                if (empty($mfa_code)) {
+                    http_response_code(401);
+                    echo json_encode(["status" => "error", "message" => "MFA code is required."]);
+                    return;
+                }
+                
+                require_once 'mfa-helper.php';
+                if (!MFAHelper::verifyCode($user['mfa_secret'], $mfa_code)) {
+                    http_response_code(401);
+                    echo json_encode(["status" => "error", "message" => "កូដ OTP មិនត្រឹមត្រូវ ឬហួសសុពលភាពឡើយ! (Invalid MFA Code)"]);
+                    return;
+                }
             }
 
             $_SESSION['user_id'] = $user['id'];
@@ -199,7 +218,7 @@ function handleLogin($db, $simulated) {
     } catch (PDOException $e) {
         error_log("Login database query failed: " . $e->getMessage());
         http_response_code(500);
-        echo json_encode(["status" => "error", "message" => "ការស៊ើបអង្កេតទិន្នន័យបានបរាជ័យ។ សូមប្រាកដថាបានបង្កើតតារាង users និងបញ្ចូលទិន្នន័យ (Seed) ក្នុង Database រួចរាល់។ (Database query failed)"]);
+        echo json_encode(["status" => "error", "message" => "ការស៊ើបអង្កេតទិន្នន័យបានបរាជ័យ។ (Database query failed)"]);
     }
 }
 
@@ -224,7 +243,6 @@ function handleRequestAdminPromotion($db, $simulated) {
         return;
     }
 
-    // Verify target user exists and is currently a regular user
     $stmt = $db->prepare("SELECT role, status FROM users WHERE id = ?");
     $stmt->execute([$target_user_id]);
     $target = $stmt->fetch();
@@ -241,7 +259,6 @@ function handleRequestAdminPromotion($db, $simulated) {
         return;
     }
 
-    // Prevent duplicate pending requests
     $stmt = $db->prepare("SELECT id FROM admin_approvals WHERE target_user_id = ? AND status = 'pending'");
     $stmt->execute([$target_user_id]);
     if ($stmt->fetch()) {
@@ -250,7 +267,6 @@ function handleRequestAdminPromotion($db, $simulated) {
         return;
     }
 
-    // Insert pending request (Maker workflow)
     $stmt = $db->prepare("INSERT INTO admin_approvals (requested_by, target_user_id, status) VALUES (?, ?, 'pending')");
     $stmt->execute([$_SESSION['user_id'], $target_user_id]);
     
@@ -260,7 +276,7 @@ function handleRequestAdminPromotion($db, $simulated) {
 }
 
 function handleApproveAdminPromotion($db, $simulated) {
-    checkPermission('approve_admin'); // Only Super Admin has this permission by default
+    checkPermission('approve_admin');
     
     $data = json_decode(file_get_contents("php://input"), true);
     if (empty($data['request_id']) || !isset($data['decision'])) {
@@ -270,7 +286,7 @@ function handleApproveAdminPromotion($db, $simulated) {
     }
 
     $request_id = intval($data['request_id']);
-    $decision = $data['decision']; // 'approve' or 'reject'
+    $decision = $data['decision'];
 
     if ($simulated) {
         echo json_encode([
@@ -280,7 +296,6 @@ function handleApproveAdminPromotion($db, $simulated) {
         return;
     }
 
-    // Retrieve pending request details
     $stmt = $db->prepare("SELECT * FROM admin_approvals WHERE id = ? AND status = 'pending'");
     $stmt->execute([$request_id]);
     $request = $stmt->fetch();
@@ -291,7 +306,6 @@ function handleApproveAdminPromotion($db, $simulated) {
         return;
     }
 
-    // Enforce Dual Authorization / Separation of Duties (Maker cannot be the Checker/Approver)
     if ($request['requested_by'] === $_SESSION['user_id']) {
         http_response_code(403);
         echo json_encode(["status" => "error", "message" => "Security Violation: You cannot approve or reject your own request."]);
@@ -301,18 +315,15 @@ function handleApproveAdminPromotion($db, $simulated) {
     $db->beginTransaction();
     try {
         if ($decision === 'approve') {
-            // 1. Promote target user to admin
             $updateUser = $db->prepare("UPDATE users SET role = 'admin' WHERE id = ?");
             $updateUser->execute([$request['target_user_id']]);
 
-            // 2. Mark request as approved
             $updateApproval = $db->prepare("UPDATE admin_approvals SET approved_by = ?, status = 'approved', actioned_at = CURRENT_TIMESTAMP WHERE id = ?");
             $updateApproval->execute([$_SESSION['user_id'], $request_id]);
 
             logAdminActivity($db, 'APPROVE_ADD_ADMIN', $request['target_user_id'], "Approved Admin promotion request ID: $request_id");
             $message = "User successfully promoted to Admin.";
         } else {
-            // Mark request as rejected
             $updateApproval = $db->prepare("UPDATE admin_approvals SET approved_by = ?, status = 'rejected', actioned_at = CURRENT_TIMESTAMP WHERE id = ?");
             $updateApproval->execute([$_SESSION['user_id'], $request_id]);
 
@@ -388,6 +399,162 @@ function handleGetAuditLogs($db, $simulated) {
     ");
     $logs = $stmt->fetchAll();
     echo json_encode(["status" => "success", "data" => $logs]);
+}
+
+
+function handleCreateUser($db, $simulated) {
+    checkPermission('create_user');
+
+    $data = json_decode(file_get_contents("php://input"), true);
+    if (empty($data['username']) || empty($data['password']) || empty($data['role'])) {
+        http_response_code(400);
+        echo json_encode(["status" => "error", "message" => "ឈ្មោះអ្នកប្រើប្រាស់ ពាក្យសម្ងាត់ និងតួនាទី គឺចាំបាច់ត្រូវតែបំពេញ!"]);
+        return;
+    }
+
+    $username = trim($data['username']);
+    $password = $data['password'];
+    $role = trim($data['role']);
+
+    // Validate role
+    if (!in_array($role, ['user', 'admin', 'super_admin'])) {
+        http_response_code(400);
+        echo json_encode(["status" => "error", "message" => "ប្រភេទតួនាទីមិនត្រឹមត្រូវឡើយ!"]);
+        return;
+    }
+
+    // Admins can only create regular users (Prevent Privilege Escalation)
+    $creator_role = $_SESSION['role'];
+    if ($creator_role === 'admin' && ($role === 'admin' || $role === 'super_admin')) {
+        http_response_code(403);
+        echo json_encode(["status" => "error", "message" => "គណនីប្រភេទ Admin អាចបង្កើតបានតែសិទ្ធិជា User ធម្មតាប៉ុណ្ណោះ!"]);
+        return;
+    }
+
+    // Proportional Password Policy length constraint
+    $minLength = ($role === 'super_admin' || $role === 'admin') ? 12 : 8;
+    if (strlen($password) < $minLength) {
+        http_response_code(400);
+        echo json_encode(["status" => "error", "message" => "ពាក្យសម្ងាត់សម្រាប់តួនាទី " . strtoupper($role) . " ត្រូវតែមានប្រវែងយ៉ាងតិច $minLength ខ្ទង់។"]);
+        return;
+    }
+
+    if ($simulated) {
+        echo json_encode([
+            "status" => "success",
+            "message" => "បង្កើតគណនីថ្មីជោគជ័យ! (Simulated User Created)",
+            "data" => [
+                "username" => $username,
+                "role" => $role,
+                "status" => "active"
+            ]
+        ]);
+        return;
+    }
+
+    try {
+        // Check uniqueness
+        $stmt = $db->prepare("SELECT id FROM users WHERE username = ? LIMIT 1");
+        $stmt->execute([$username]);
+        if ($stmt->fetch()) {
+            http_response_code(400);
+            echo json_encode(["status" => "error", "message" => "ឈ្មោះអ្នកប្រើប្រាស់នេះមានរួចហើយនៅក្នុងប្រព័ន្ធ!"]);
+            return;
+        }
+
+        $password_hash = password_hash($password, PASSWORD_BCRYPT);
+        $stmt = $db->prepare("INSERT INTO users (username, password_hash, role, status) VALUES (?, ?, ?, 'active')");
+        $stmt->execute([$username, $password_hash, $role]);
+        $new_user_id = $db->lastInsertId();
+
+        // Security Log
+        logAdminActivity($db, 'CREATE_USER', $new_user_id, "Created new user account: '$username' with role: '$role'");
+
+        echo json_encode([
+            "status" => "success",
+            "message" => "បង្កើតគណនីអ្នកប្រើប្រាស់ '$username' (តួនាទី: " . strtoupper($role) . ") ទទួលបានជោគជ័យ!"
+        ]);
+    } catch (PDOException $e) {
+        error_log("Database error creating user: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(["status" => "error", "message" => "បរាជ័យក្នុងការបង្កើតគណនីថ្មីក្នុង Database! " . $e->getMessage()]);
+    }
+}
+
+
+function handleResetPassword($db, $simulated) {
+    checkPermission('reset_password');
+
+    $data = json_decode(file_get_contents("php://input"), true);
+    if (empty($data['target_user_id']) || empty($data['new_password'])) {
+        http_response_code(400);
+        echo json_encode(["status" => "error", "message" => "លេខសម្គាល់អ្នកប្រើប្រាស់ និងពាក្យសម្ងាត់ថ្មី គឺចាំបាច់ត្រូវតែបំពេញ!"]);
+        return;
+    }
+
+    $target_user_id = intval($data['target_user_id']);
+    $new_password = $data['new_password'];
+
+    if ($simulated) {
+        echo json_encode([
+            "status" => "success",
+            "message" => "Reset Password ជោគជ័យ! (Simulated Password Reset)",
+            "data" => [
+                "target_user_id" => $target_user_id,
+                "status" => "success"
+            ]
+        ]);
+        return;
+    }
+
+    try {
+        // Fetch target user details
+        $stmt = $db->prepare("SELECT username, role FROM users WHERE id = ? LIMIT 1");
+        $stmt->execute([$target_user_id]);
+        $target_user = $stmt->fetch();
+
+        if (!$target_user) {
+            http_response_code(404);
+            echo json_encode(["status" => "error", "message" => "រកមិនឃើញគណនីអ្នកប្រើប្រាស់ដែលត្រូវ Reset ឡើយ!"]);
+            return;
+        }
+
+        $target_username = $target_user['username'];
+        $target_role = $target_user['role'];
+
+        // Prevent Privilege Escalation / Unauthorized Reset
+        $creator_role = $_SESSION['role'];
+        if ($creator_role === 'admin' && ($target_role === 'admin' || $target_role === 'super_admin')) {
+            http_response_code(403);
+            echo json_encode(["status" => "error", "message" => "គណនីប្រភេទ Admin អាចធ្វើការ Reset បានតែគណនីប្រភេទ User ធម្មតាប៉ុណ្ណោះ!"]);
+            return;
+        }
+
+        // Proportional Password Policy length constraint
+        $minLength = ($target_role === 'super_admin' || $target_role === 'admin') ? 12 : 8;
+        if (strlen($new_password) < $minLength) {
+            http_response_code(400);
+            echo json_encode(["status" => "error", "message" => "ពាក្យសម្ងាត់សម្រាប់តួនាទី " . strtoupper($target_role) . " ត្រូវតែមានប្រវែងយ៉ាងតិច $minLength ខ្ទង់។"]);
+            return;
+        }
+
+        $password_hash = password_hash($new_password, PASSWORD_BCRYPT);
+        
+        $stmt = $db->prepare("UPDATE users SET password_hash = ? WHERE id = ?");
+        $stmt->execute([$password_hash, $target_user_id]);
+
+        // Security Audit Log with Details
+        logAdminActivity($db, 'RESET_USER_PASSWORD', $target_user_id, "Admin reset password for user: '$target_username' (ID: $target_user_id, Role: " . strtoupper($target_role) . ")");
+
+        echo json_encode([
+            "status" => "success",
+            "message" => "ការផ្លាស់ប្តូរពាក្យសម្ងាត់សម្រាប់អ្នកប្រើប្រាស់ '$target_username' ទទួលបានជោគជ័យ!"
+        ]);
+    } catch (PDOException $e) {
+        error_log("Database error resetting password: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(["status" => "error", "message" => "បរាជ័យក្នុងការ Reset Password ក្នុង Database! " . $e->getMessage()]);
+    }
 }
 
 function handleLogout() {

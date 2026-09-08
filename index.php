@@ -1,11 +1,11 @@
 <?php
 /**
- * index-v2.php - Main Financial Dashboard with Automated LocalStorage Synchronization
+ * index-v8.php - Main Financial Dashboard with Fully Responsive & Clear Styling
  * Part of the Khmer Payment Tracker and Financial Management System
  * 
  * This file serves as the core user dashboard. It displays real-time financial widgets (metrics),
  * a transaction creation form, a paginated transaction history table, and admin control panels.
- * It automatically synchronizes the PHP Session to Browser LocalStorage to ensure seamless Javascript integration.
+ * Features mobile-first responsive layout grid and high legibility Khmer font styling.
  */
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -32,175 +32,6 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
     <title>ប្រព័ន្ធគ្រប់គ្រងហិរញ្ញវត្ថុ - Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@300;400;600;700&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="admin-style.css">
-    <link rel="icon" type="image/x-icon" href="icon.png">
-    <style>
-        body {
-            font-family: 'Kantumruy Pro', 'Inter', sans-serif;
-            background-color: #f3f4f6;
-            margin: 0;
-            padding: 0;
-            color: #1f2937;
-        }
-        .navbar {
-            background: #1e3a8a;
-            color: white;
-            padding: 1rem 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        }
-        .navbar-brand {
-            font-size: 1.25rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        .navbar-nav {
-            display: flex;
-            gap: 1.5rem;
-            align-items: center;
-        }
-        .navbar-nav a {
-            color: #e0e7ff;
-            text-decoration: none;
-            font-weight: 600;
-            transition: color 0.2s;
-        }
-        .navbar-nav a:hover {
-            color: white;
-        }
-        .logout-btn {
-            background-color: #ef4444;
-            color: white !important;
-            padding: 0.4rem 1rem;
-            border-radius: 6px;
-            transition: background 0.2s !important;
-        }
-        .logout-btn:hover {
-            background-color: #dc2626;
-        }
-        .dashboard-container {
-            max-width: 1200px;
-            margin: 2rem auto;
-            padding: 0 1.5rem;
-        }
-        .welcome-banner {
-            margin-bottom: 2rem;
-        }
-        .welcome-banner h1 {
-            margin: 0;
-            font-size: 1.75rem;
-            color: #1f2937;
-        }
-        .welcome-banner p {
-            margin: 0.25rem 0 0 0;
-            color: #6b7280;
-        }
-        .main-content-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 2rem;
-            align-items: start;
-        }
-        @media (min-width: 992px) {
-            .main-content-grid {
-                grid-template-columns: 4fr 8fr;
-            }
-        }
-        .form-title {
-            margin-top: 0;
-            margin-bottom: 1.5rem;
-            font-size: 1.25rem;
-            font-weight: 700;
-            color: #1e3a8a;
-            border-bottom: 2px solid #e5e7eb;
-            padding-bottom: 0.5rem;
-        }
-        .form-group {
-            margin-bottom: 1.25rem;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-            font-size: 0.9rem;
-            color: #475569;
-        }
-        .form-group input, .form-group select {
-            width: 100%;
-            padding: 0.6rem;
-            border: 1px solid #cbd5e1;
-            border-radius: 6px;
-            font-family: inherit;
-            font-size: 0.95rem;
-            box-sizing: border-box;
-        }
-        .amount-input-group {
-            display: flex;
-            gap: 0.5rem;
-        }
-        .amount-input-group input {
-            flex: 2;
-        }
-        .amount-input-group select {
-            flex: 1;
-        }
-        .btn-submit {
-            width: 100%;
-            background-color: #2563eb;
-            color: white;
-            border: none;
-            padding: 0.75rem;
-            border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
-            font-family: inherit;
-            font-size: 1rem;
-            transition: background-color 0.2s;
-        }
-        .btn-submit:hover {
-            background-color: #1d4ed8;
-        }
-        .table-header-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-        .table-header-row h2 {
-            margin: 0;
-            font-size: 1.25rem;
-            font-weight: 700;
-            color: #1e3a8a;
-        }
-        .filter-group {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        .filter-group label {
-            font-weight: 600;
-            font-size: 0.85rem;
-            color: #475569;
-            white-space: nowrap;
-        }
-        .filter-group input {
-            padding: 0.4rem;
-            border: 1px solid #cbd5e1;
-            border-radius: 6px;
-            font-family: inherit;
-            font-size: 0.85rem;
-        }
-        .card {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 10px;
-            border: 1px solid #e5e7eb;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
-        }
-    </style>
 </head>
 <body>
 
@@ -213,19 +44,24 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
         }));
     </script>
 
-    <!-- Navigation Bar -->
+    <!-- Navigation Bar with Burger Toggle -->
     <nav class="navbar">
         <div class="navbar-brand">
             <span>📊 ប្រព័ន្ធគ្រប់គ្រងហិរញ្ញវត្ថុ</span>
         </div>
-        <div class="navbar-nav">
+        <button class="navbar-toggle" id="navbar-toggle-btn" aria-label="Toggle Navigation">
+            <span class="bar"></span>
+            <span class="bar"></span>
+            <span class="bar"></span>
+        </button>
+        <div class="navbar-nav" id="navbar-menu">
             <a href="index.php">Dashboard</a>
             <a href="profile.php">ប្រវត្តិរូបផ្ទាល់ខ្លួន</a>
             <?php if ($role === 'super_admin' || $role === 'admin'): ?>
                 <a href="archive-history.php">បណ្ណសារសវនកម្ម (History)</a>
-                <a href="pdf.php" target="_blank">ទាញយក PDF</a>
-                <a href="export-csv.php" target="_blank">នាំចេញ CSV</a>
             <?php endif; ?>
+            <a href="pdf.php" target="_blank">ទាញយក PDF</a>
+            <a href="export-csv.php" target="_blank">នាំចេញ CSV</a>
             <a href="#" onclick="logoutUser(); return false;" class="logout-btn">ចាកចេញ</a>
         </div>
     </nav>
@@ -238,10 +74,10 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
         </div>
 
         <!-- Dashboard Widgets (Metrics) -->
-        <div class="metrics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+        <div class="metrics-grid">
             
             <!-- ១. កាតសមតុល្យសរុប -->
-            <div class="metric-card" style="background: #ffffff; padding: 1.5rem; border-radius: 10px; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px rgba(0,0,0,0.02);">
+            <div class="metric-card">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
                     <h3 style="margin: 0; font-size: 1.1rem; color: #374151;">💰 សមតុល្យសរុប (Total Balance)</h3>
                     <span style="font-size: 1.5rem;">💵</span>
@@ -253,7 +89,7 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
             </div>
 
             <!-- ២. កាតចំណូលសរុប -->
-            <div class="metric-card" style="background: #ffffff; padding: 1.5rem; border-radius: 10px; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px rgba(0,0,0,0.02);">
+            <div class="metric-card">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
                     <h3 style="margin: 0; font-size: 1.1rem; color: #374151;">📈 ចំណូលសរុប (Total Income)</h3>
                     <span style="font-size: 1.5rem;">📈</span>
@@ -265,7 +101,7 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
             </div>
 
             <!-- ៣. កាតចំណាយសរុប -->
-            <div class="metric-card" style="background: #ffffff; padding: 1.5rem; border-radius: 10px; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px rgba(0,0,0,0.02);">
+            <div class="metric-card">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
                     <h3 style="margin: 0; font-size: 1.1rem; color: #374151;">📉 ចំណាយសរុប (Total Expense)</h3>
                     <span style="font-size: 1.5rem;">📉</span>
@@ -276,7 +112,87 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
                 </div>
             </div>
 
+
         </div>
+
+        <?php if ($role === 'super_admin' || $role === 'admin'): ?>
+        <!-- របារបញ្ជាអភិបាលប្រព័ន្ធ (Admin Panel Toggle Control Bar) -->
+        <div class="admin-control-bar" style="display: flex; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap; background-color: var(--white); padding: 1rem; border-radius: var(--radius-lg); border: 1px solid var(--gray-border); box-shadow: var(--shadow);">
+            <span style="font-weight: 700; color: #1e3a8a; display: flex; align-items: center; gap: 8px; width: 100%; margin-bottom: 0.5rem; font-size: 1rem;">
+                🛠️ ផ្ទាំងគ្រប់គ្រងសិទ្ធិអភិបាលប្រព័ន្ធ (Administrative Controls)
+            </span>
+            <button id="toggle-create-user-btn" class="btn" style="background-color: #10b981; color: white; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; font-size: 0.9rem; border-radius: var(--radius-sm); border: none; cursor: pointer; transition: all 0.2s;">
+                👤 បង្កើតគណនីថ្មី (Create Account)
+            </button>
+            <button id="toggle-manage-users-btn" class="btn" style="background-color: #2563eb; color: white; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; font-size: 0.9rem; border-radius: var(--radius-sm); border: none; cursor: pointer; transition: all 0.2s;">
+                👥 គ្រប់គ្រងគណនី (Manage Users)
+            </button>
+        </div>
+
+        <!-- ធុងផ្ទុកផ្ទាំងអភិបាលប្រព័ន្ធ (Admin Panels Collapsible Container - Spans Full Width for high clarity) -->
+        <div id="admin-panels-container" style="margin-bottom: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem;">
+            
+            <!-- ផ្ទាំងបង្កើតអ្នកប្រើប្រាស់ថ្មី (Collapsible Card 1) -->
+            <div id="create-user-panel" class="card" style="display: none; border-left: 5px solid #10b981; animation: slideDownPanel 0.25s ease-out; margin: 0;">
+                <h2 class="form-title" style="color: #10b981; border-bottom: 2px solid #ecfdf5; display: flex; align-items: center; gap: 8px;">
+                    👤 បង្កើតគណនីអ្នកប្រើប្រាស់ថ្មី
+                </h2>
+                <form id="admin-create-user-form" style="max-width: 500px; margin: 0 auto; padding: 1rem 0;">
+                    <div class="form-group">
+                        <label for="new-username">ឈ្មោះអ្នកប្រើប្រាស់ (Username)</label>
+                        <input type="text" id="new-username" required placeholder="ឧ. vichea_dev" autocomplete="username">
+                    </div>
+                    <div class="form-group">
+                        <label for="new-password">ពាក្យសម្ងាត់ (Password)</label>
+                        <input type="password" id="new-password" required placeholder="••••••••" autocomplete="new-password">
+                    </div>
+                    <div class="form-group">
+                        <label for="new-role">តួនាទី (User Role)</label>
+                        <select id="new-role" required>
+                            <option value="user">អ្នកប្រើប្រាស់ទូទៅ (USER)</option>
+                            <?php if ($role === 'super_admin'): ?>
+                                <option value="admin">អភិបាលប្រព័ន្ធ (ADMIN)</option>
+                                <option value="super_admin">អភិបាលជាន់ខ្ពស់ (SUPER ADMIN)</option>
+                            <?php endif; ?>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn-submit" style="background-color: #10b981;">បង្កើតគណនី (Create)</button>
+                </form>
+            </div>
+
+            <!-- ផ្ទាំងបញ្ជីឈ្មោះអ្នកប្រើប្រាស់ និងសកម្មភាព (Collapsible Card 2) -->
+            <div id="manage-users-panel" class="card" style="display: none; border-left: 5px solid #2563eb; animation: slideDownPanel 0.25s ease-out; margin: 0;">
+                <h2 class="form-title" style="color: #2563eb; border-bottom: 2px solid #eff6ff; display: flex; align-items: center; gap: 8px;">
+                    👥 គ្រប់គ្រងគណនីអ្នកប្រើប្រាស់
+                </h2>
+                <div class="table-responsive">
+                    <table class="transaction-table" id="users-table">
+                        <thead>
+                            <tr>
+                                <th>ឈ្មោះអ្នកប្រើប្រាស់ (Username)</th>
+                                <th>តួនាទី (Role)</th>
+                                <th>ស្ថានភាព (Status)</th>
+                                <th style="text-align: center;">សកម្មភាព (Actions)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-users-table-body">
+                            <tr>
+                                <td colspan="4" style="text-align: center; padding: 20px; color: #6b7280;">កំពុងទាញយកទិន្នន័យ...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+        <style>
+            @keyframes slideDownPanel {
+                from { opacity: 0; transform: translateY(-10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+        </style>
+        <?php endif; ?>
 
         <!-- Main Layout Grid -->
         <div class="main-content-grid">
@@ -323,8 +239,11 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
                 </form>
             </div>
 
+            
+
+
             <!-- ផ្នែកបញ្ជីប្រតិបត្តិការហិរញ្ញវត្ថុ (Transaction Table) -->
-            <div class="card" style="overflow-x: auto;">
+            <div class="card">
                 <div class="table-header-row">
                     <h2>បញ្ជីប្រតិបត្តិការហិរញ្ញវត្ថុ</h2>
                     
@@ -335,26 +254,28 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
                     </div>
                 </div>
                 
-                <table class="transaction-table" style="width: 100%; border-collapse: collapse; margin-top: 1rem;">
-                    <thead>
-                        <tr style="background-color: #f3f4f6; text-align: left;">
-                            <th style="padding: 12px; border-bottom: 2px solid #e5e7eb; font-size: 0.9rem;">កាលបរិច្ឆេទ (Date)</th>
-                            <th style="padding: 12px; border-bottom: 2px solid #e5e7eb; font-size: 0.9rem;">បរិយាយ (Description)</th>
-                            <th style="padding: 12px; border-bottom: 2px solid #e5e7eb; font-size: 0.9rem;">អ្នកបន្ថែម (You add)</th>
-                            <th style="padding: 12px; border-bottom: 2px solid #e5e7eb; font-size: 0.9rem;">ប្រភេទ (Type)</th>
-                            <th style="padding: 12px; border-bottom: 2px solid #e5e7eb; font-size: 0.9rem;">ចំនួនទឹកប្រាក់ (Amount)</th>
-                            <th style="padding: 12px; border-bottom: 2px solid #e5e7eb; font-size: 0.9rem; text-align: center;">សកម្មភាព (Activity)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="transaction-table-body">
-                        <tr>
-                            <td colspan="6" style="text-align: center; padding: 20px; color: #6b7280;">កំពុងទាញយកទិន្នន័យប្រតិបត្តិការ...</td>
-                        </tr>
-                    </tbody>
-                </table>
+                <div class="table-responsive">
+                    <table class="transaction-table">
+                        <thead>
+                            <tr>
+                                <th>កាលបរិច្ឆេទ (Date)</th>
+                                <th>បរិយាយ (Description)</th>
+                                <th>អ្នកបន្ថែម (You add)</th>
+                                <th>ប្រភេទ (Type)</th>
+                                <th>ចំនួនទឹកប្រាក់ (Amount)</th>
+                                <th style="text-align: center;">សកម្មភាព (Activity)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transaction-table-body">
+                            <tr>
+                                <td colspan="6" style="text-align: center; padding: 20px; color: #6b7280;">កំពុងទាញយកទិន្នន័យប្រតិបត្តិការ...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
 
                 <!-- របារគ្រប់គ្រងទំព័រ (Pagination Controls Grid) -->
-                <div id=\"pagination-controls\"></div>
+                <div id="pagination-controls"></div>
             </div>
 
         </div>
@@ -362,6 +283,99 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
 
     <script src="admin-integration.js"></script>
     <script>
+                // Burger menu toggle logic
+        document.addEventListener('DOMContentLoaded', () => {
+            const toggleBtn = document.getElementById('navbar-toggle-btn');
+            const menu = document.getElementById('navbar-menu');
+            if (toggleBtn && menu) {
+                toggleBtn.addEventListener('click', () => {
+                    toggleBtn.classList.toggle('active');
+                    menu.classList.toggle('active');
+                });
+            }
+        });
+
+        // Toggle Admin Collapsible Panels
+        document.addEventListener('DOMContentLoaded', () => {
+            const toggleCreateBtn = document.getElementById('toggle-create-user-btn');
+            const toggleManageBtn = document.getElementById('toggle-manage-users-btn');
+            
+            const createUserPanel = document.getElementById('create-user-panel');
+            const manageUsersPanel = document.getElementById('manage-users-panel');
+            
+            if (toggleCreateBtn && createUserPanel) {
+                toggleCreateBtn.addEventListener('click', () => {
+                    if (createUserPanel.style.display === 'none') {
+                        // Show Create and Hide Manage
+                        createUserPanel.style.display = 'block';
+                        manageUsersPanel.style.display = 'none';
+                        
+                        toggleCreateBtn.style.backgroundColor = '#059669'; // Darker green
+                        toggleCreateBtn.innerHTML = '✕ បិទផ្ទាំងបង្កើត (Close Create)';
+                        
+                        // Reset Manage Button
+                        toggleManageBtn.style.backgroundColor = '#2563eb';
+                        toggleManageBtn.innerHTML = '👥 គ្រប់គ្រងគណនី (Manage Users)';
+                    } else {
+                        createUserPanel.style.display = 'none';
+                        toggleCreateBtn.style.backgroundColor = '#10b981';
+                        toggleCreateBtn.innerHTML = '👤 បង្កើតគណនីថ្មី (Create Account)';
+                    }
+                });
+            }
+            
+            if (toggleManageBtn && manageUsersPanel) {
+                toggleManageBtn.addEventListener('click', () => {
+                    if (manageUsersPanel.style.display === 'none') {
+                        // Show Manage and Hide Create
+                        manageUsersPanel.style.display = 'block';
+                        createUserPanel.style.display = 'none';
+                        
+                        toggleManageBtn.style.backgroundColor = '#1d4ed8'; // Darker blue
+                        toggleManageBtn.innerHTML = '✕ បិទផ្ទាំងគ្រប់គ្រង (Close Manage)';
+                        
+                        // Reset Create Button
+                        toggleCreateBtn.style.backgroundColor = '#10b981';
+                        toggleCreateBtn.innerHTML = '👤 បង្កើតគណនីថ្មី (Create Account)';
+                        
+                        // Reload table when opened
+                        if (typeof loadUsersTable === 'function') {
+                            loadUsersTable();
+                        }
+                    } else {
+                        manageUsersPanel.style.display = 'none';
+                        toggleManageBtn.style.backgroundColor = '#2563eb';
+                        toggleManageBtn.innerHTML = '👥 គ្រប់គ្រងគណនី (Manage Users)';
+                    }
+                });
+            }
+        });
+
+        // Form បង្កើតអ្នកប្រើប្រាស់ថ្មីដោយ Admin
+        document.addEventListener('DOMContentLoaded', () => {
+            const createUserForm = document.getElementById('admin-create-user-form');
+            if (createUserForm) {
+                createUserForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    
+                    const usernameInput = document.getElementById('new-username');
+                    const passwordInput = document.getElementById('new-password');
+                    const roleInput = document.getElementById('new-role');
+                    
+                    const username = usernameInput.value.trim();
+                    const password = passwordInput.value;
+                    const role = roleInput.value;
+                    
+                    try {
+                        await createUserByAdmin(username, password, role);
+                        createUserForm.reset();
+                    } catch (error) {
+                        console.error('Error creating user:', error);
+                    }
+                });
+            }
+        });
+
         // Set default date input value to current local datetime
         document.addEventListener('DOMContentLoaded', () => {
             const dateInput = document.getElementById('date');

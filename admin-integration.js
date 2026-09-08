@@ -381,12 +381,30 @@ async function loadTransactionsTable(page = 1, limit = 5, dateFilter = '') {
                 }
 
                 tr.innerHTML = `
-                    <td style="padding: 12px; font-size: 0.9rem; color: #4b5563;">${row.date}</td>
-                    <td style="padding: 12px; font-weight: 600; color: #1f2937;">${row.description}</td>
-                    <td style="padding: 12px; color: #6b7280;">${row.creator}</td>
-                    <td style="padding: 12px;"><span style="color: ${typeColor}; font-weight: bold;">${row.type}</span></td>
-                    <td style="padding: 12px; font-weight: bold; color: #1f2937;">${row.amount}</td>
-                    <td style="padding: 12px; text-align: center;">${actionButtonsHtml}</td>
+                    <td style="padding: 12px; font-size: 0.9rem; color: #4b5563;">
+                        <span class="mobile-label">កាលបរិច្ឆេទ</span>
+                        <span class="cell-value">${row.date}</span>
+                    </td>
+                    <td style="padding: 12px; font-weight: 600; color: #1f2937;">
+                        <span class="mobile-label">បរិយាយ</span>
+                        <span class="cell-value">${row.description}</span>
+                    </td>
+                    <td style="padding: 12px; color: #6b7280;">
+                        <span class="mobile-label">អ្នកបន្ថែម</span>
+                        <span class="cell-value">${row.creator}</span>
+                    </td>
+                    <td style="padding: 12px;">
+                        <span class="mobile-label">ប្រភេទ</span>
+                        <span class="cell-value"><span style="color: ${typeColor}; font-weight: bold;">${row.type}</span></span>
+                    </td>
+                    <td style="padding: 12px; font-weight: bold; color: #1f2937;">
+                        <span class="mobile-label">ចំនួនទឹកប្រាក់</span>
+                        <span class="cell-value">${row.amount}</span>
+                    </td>
+                    <td style="padding: 12px; text-align: center;">
+                        <span class="mobile-label">សកម្មភាព</span>
+                        <span class="cell-value">${actionButtonsHtml}</span>
+                    </td>
                 `;
                 tableBody.appendChild(tr);
             });
@@ -619,13 +637,34 @@ async function loadAuditHistoryTable() {
 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td style="padding: 12px; color: #4b5563;"><small>${row.actioned_at}</small></td>
-                    <td style="padding: 12px;"><strong>${row.owner}</strong></td>
-                    <td style="padding: 12px;"><span class="badge ${actionBadgeClass}">${actionBadgeText}</span></td>
-                    <td style="padding: 12px;">${origBlock}</td>
-                    <td style="padding: 12px;">${newBlock}</td>
-                    <td style="padding: 12px; text-align: center; vertical-align: middle;">${actionColumnHtml}</td>
-                    <td style="padding: 12px;">👤 <strong>${row.actioned_by}</strong></td>
+                    <td style="padding: 12px; color: #4b5563;">
+                        <span class="mobile-label">កាលបរិច្ឆេទសកម្មភាព</span>
+                        <span class="cell-value"><small>${row.actioned_at}</small></span>
+                    </td>
+                    <td style="padding: 12px;">
+                        <span class="mobile-label">ម្ចាស់ទិន្នន័យ</span>
+                        <span class="cell-value"><strong>${row.owner}</strong></span>
+                    </td>
+                    <td style="padding: 12px;">
+                        <span class="mobile-label">ប្រភេទសកម្មភាព</span>
+                        <span class="cell-value"><span class="badge ${actionBadgeClass}">${actionBadgeText}</span></span>
+                    </td>
+                    <td style="padding: 12px;">
+                        <span class="mobile-label">ទិន្នន័យដើម</span>
+                        <span class="cell-value">${origBlock}</span>
+                    </td>
+                    <td style="padding: 12px;">
+                        <span class="mobile-label">ទិន្នន័យថ្មី</span>
+                        <span class="cell-value">${newBlock}</span>
+                    </td>
+                    <td style="padding: 12px; text-align: center; vertical-align: middle;">
+                        <span class="mobile-label">សកម្មភាព</span>
+                        <span class="cell-value">${actionColumnHtml}</span>
+                    </td>
+                    <td style="padding: 12px;">
+                        <span class="mobile-label">អ្នកអនុវត្ត</span>
+                        <span class="cell-value">👤 <strong>${row.actioned_by}</strong></span>
+                    </td>
                 `;
                 tableBody.appendChild(tr);
             });
@@ -780,6 +819,7 @@ function createEditModalMarkup() {
 
 function editTransactionClick(id, title, amount, currency, type, category, date) {
     createEditModalMarkup();
+    createResetPasswordModalMarkup();
     
     document.getElementById('edit-tx-id').value = id;
     document.getElementById('edit-tx-title').value = decodeURIComponent(title);
@@ -803,10 +843,237 @@ function closeEditTransactionModal() {
 }
 
 
+
+/**
+ * ៩. បង្កើតអ្នកប្រើប្រាស់ថ្មីដោយ Admin (Create User by Admin)
+ */
+async function createUserByAdmin(username, password, role) {
+    try {
+        const result = await sendRequest(`${API_BASE_URL}?action=create_user`, 'POST', { username, password, role });
+        showToast(result.message, 'success');
+        if (document.getElementById('admin-users-table-body')) {
+            loadUsersTable();
+        }
+        return result;
+    } catch (error) {
+        showToast(`បរាជ័យក្នុងការបង្កើតគណនី៖ ${error.message}`, 'error');
+        throw error;
+    }
+}
+
+/**
+ * ១០. ទាញយក និងបង្ហាញបញ្ជីឈ្មោះអ្នកប្រើប្រាស់ (User Management Table)
+ */
+async function fetchUsersList() {
+    try {
+        const result = await sendRequest(`${API_BASE_URL}?action=users`, 'GET');
+        return result.data;
+    } catch (error) {
+        console.error('Failed to load registered users:', error);
+        return [];
+    }
+}
+
+async function loadUsersTable() {
+    const tableBody = document.getElementById('admin-users-table-body');
+    if (!tableBody) return;
+
+    tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px;">កំពុងទាញយកទិន្នន័យ...</td></tr>';
+
+    try {
+        const users = await fetchUsersList();
+        tableBody.innerHTML = '';
+
+        if (users.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px; color: #6b7280;">គ្មានគណនីអ្នកប្រើប្រាស់ក្នុងប្រព័ន្ធឡើយ។</td></tr>';
+            return;
+        }
+
+        const currentUser = JSON.parse(localStorage.getItem('current_user') || '{}');
+
+        users.forEach(user => {
+            const tr = document.createElement('tr');
+            tr.style.borderBottom = '1px solid #e5e7eb';
+
+            // Role Badge styling
+            let roleBadgeClass = 'user-badge';
+            if (user.role === 'super_admin') {
+                roleBadgeClass = 'super-admin-badge';
+            } else if (user.role === 'admin') {
+                roleBadgeClass = 'admin-badge';
+            }
+
+            // Status styling
+            const statusColor = user.status === 'active' ? '#10b981' : '#ef4444';
+
+            // Check if current user has permission to reset password for this user
+            // super_admin can reset anyone | admin can only reset 'user' role | Cannot reset self here
+            const isSelf = parseInt(user.id) === parseInt(currentUser.user_id);
+            const canReset = !isSelf && (
+                currentUser.role === 'super_admin' || 
+                (currentUser.role === 'admin' && user.role === 'user')
+            );
+
+            let actionHtml = '';
+            if (isSelf) {
+                actionHtml = `<span style="color: #64748b; font-size: 0.85rem; font-style: italic;">គណនីផ្ទាល់ខ្លួន (ប្តូរក្នុង Profile)</span>`;
+            } else if (canReset) {
+                actionHtml = `
+                    <button onclick="showResetPasswordModal(${user.id}, '${user.username}', '${user.role}')" 
+                            style="background-color: #f59e0b; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-family: 'Kantumruy Pro', sans-serif; font-size: 0.8rem; font-weight: 600; transition: background 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05);"
+                            onmouseover="this.style.backgroundColor='#d97706'"
+                            onmouseout="this.style.backgroundColor='#f59e0b'">
+                        🔑 Reset Password
+                    </button>
+                `;
+            } else {
+                actionHtml = `<span style="color: #94a3b8; font-size: 0.85rem;">គ្មានសិទ្ធិគ្រប់គ្រង</span>`;
+            }
+
+            tr.innerHTML = `
+                <td style="padding: 12px; font-weight: 600; color: #1e293b;">
+                    <span class="mobile-label">ឈ្មោះអ្នកប្រើប្រាស់</span>
+                    <span class="cell-value">👤 ${user.username}</span>
+                </td>
+                <td style="padding: 12px;">
+                    <span class="mobile-label">តួនាទី</span>
+                    <span class="cell-value"><span class="user-role-badge ${roleBadgeClass}">${user.role.toUpperCase()}</span></span>
+                </td>
+                <td style="padding: 12px; font-weight: 600; color: ${statusColor};">
+                    <span class="mobile-label">ស្ថានភាព</span>
+                    <span class="cell-value">${user.status === 'active' ? 'ACTIVE' : 'SUSPENDED'}</span>
+                </td>
+                <td style="padding: 12px; text-align: center; vertical-align: middle;">
+                    <span class="mobile-label">សកម្មភាព</span>
+                    <span class="cell-value">${actionHtml}</span>
+                </td>
+            `;
+            tableBody.appendChild(tr);
+        });
+    } catch (error) {
+        console.error('Error rendering users table:', error);
+        tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px; color: #ef4444;">❌ មិនអាចទាញយកបញ្ជីគណនីបានឡើយ។</td></tr>';
+    }
+}
+
+/**
+ * ១១. បង្កើត និងគ្រប់គ្រង Reset Password Modal
+ */
+function createResetPasswordModalMarkup() {
+    if (document.getElementById('reset-password-modal')) return;
+
+    const modalDiv = document.createElement('div');
+    modalDiv.id = 'reset-password-modal';
+    modalDiv.style.display = 'none';
+    modalDiv.style.position = 'fixed';
+    modalDiv.style.zIndex = '10002';
+    modalDiv.style.left = '0';
+    modalDiv.style.top = '0';
+    modalDiv.style.width = '100%';
+    modalDiv.style.height = '100%';
+    modalDiv.style.backgroundColor = 'rgba(0,0,0,0.4)';
+    modalDiv.style.justifyContent = 'center';
+    modalDiv.style.alignItems = 'center';
+
+    modalDiv.innerHTML = `
+        <div style="background-color: #ffffff; padding: 2rem; border-radius: 12px; width: 420px; max-width: 90%; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); font-family: 'Kantumruy Pro', sans-serif;">
+            <h3 style="margin-top: 0; margin-bottom: 1.5rem; color: #1e3a8a; border-bottom: 2px solid #e5e7eb; padding-bottom: 0.5rem; font-weight: 700;">🔑 Reset Password គណនីបុគ្គលិក</h3>
+            <form id="admin-reset-password-form">
+                <input type="hidden" id="reset-user-id">
+                <input type="hidden" id="reset-user-role">
+                
+                <div style="margin-bottom: 1.5rem; padding: 12px; background-color: #eff6ff; border-radius: 8px; border-left: 4px solid #2563eb;">
+                    <span style="font-size: 0.85rem; color: #1e40af; font-weight: 600;">គណនី៖</span> <strong id="reset-user-username" style="font-size: 1.05rem; color: #1e3a8a;"></strong><br>
+                    <span style="font-size: 0.85rem; color: #1e40af; font-weight: 600;">តួនាទី៖</span> <strong id="reset-user-role-badge" style="color: #2563eb; text-transform: uppercase; font-size: 0.85rem;"></strong>
+                </div>
+
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; font-weight: bold; margin-bottom: 0.5rem; font-size: 0.9rem; color: #475569;">ពាក្យសម្ងាត់ថ្មី (New Password)</label>
+                    <input type="password" id="reset-new-password" style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-size: 1rem; outline: none; transition: border-color 0.2s;" placeholder="••••••••" required autocomplete="new-password">
+                    <p id="reset-pw-help-text" style="margin-top: 0.5rem; margin-bottom: 0; font-size: 0.8rem; color: #64748b; line-height: 1.4;"></p>
+                </div>
+                
+                <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                    <button type="button" onclick="closeResetPasswordModal()" style="padding: 8px 16px; border: 1px solid #cbd5e1; background: #ffffff; color: #4b5563; border-radius: 6px; cursor: pointer; font-weight: bold; font-family: inherit;">បោះបង់</button>
+                    <button type="submit" style="padding: 8px 16px; background: #2563eb; color: #ffffff; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-family: inherit; transition: background 0.2s;" onmouseover="this.style.backgroundColor='#1d4ed8'" onmouseout="this.style.backgroundColor='#2563eb'">រក្សាទុកពាក្យសម្ងាត់</button>
+                </div>
+            </form>
+        </div>
+    `;
+
+    document.body.appendChild(modalDiv);
+
+    // Modal submit handler
+    document.getElementById('admin-reset-password-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const userId = parseInt(document.getElementById('reset-user-id').value);
+        const userRole = document.getElementById('reset-user-role').value;
+        const newPassword = document.getElementById('reset-new-password').value;
+
+        // Form validation check
+        const minLength = (userRole === 'super_admin' || userRole === 'admin') ? 12 : 8;
+        if (newPassword.length < minLength) {
+            showToast(`ពាក្យសម្ងាត់សម្រាប់តួនាទី ${userRole.toUpperCase()} ត្រូវតែមានប្រវែងយ៉ាងតិច ${minLength} ខ្ទង់!`, 'error');
+            return;
+        }
+
+        try {
+            const result = await resetUserPasswordByAdmin(userId, newPassword);
+            showToast(result.message, 'success');
+            closeResetPasswordModal();
+            loadUsersTable(); // Reload users table to show updated status if relevant
+        } catch (error) {
+            // Error toast handled inside resetUserPasswordByAdmin
+        }
+    });
+}
+
+function showResetPasswordModal(id, username, role) {
+    createResetPasswordModalMarkup();
+
+    document.getElementById('reset-user-id').value = id;
+    document.getElementById('reset-user-role').value = role;
+    document.getElementById('reset-user-username').innerText = username;
+    document.getElementById('reset-user-role-badge').innerText = role.toUpperCase();
+    document.getElementById('reset-new-password').value = '';
+
+    const minLength = (role === 'super_admin' || role === 'admin') ? 12 : 8;
+    document.getElementById('reset-pw-help-text').innerHTML = `ពាក្យសម្ងាត់សម្រាប់តួនាទី <strong>${role.toUpperCase()}</strong> ត្រូវមានប្រវែងយ៉ាងតិច <strong>${minLength} ខ្ទង់</strong>។`;
+
+    const modal = document.getElementById('reset-password-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+        document.getElementById('reset-new-password').focus();
+    }
+}
+
+function closeResetPasswordModal() {
+    const modal = document.getElementById('reset-password-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+async function resetUserPasswordByAdmin(targetUserId, newPassword) {
+    try {
+        const result = await sendRequest(`${API_BASE_URL}?action=reset_password`, 'POST', {
+            target_user_id: targetUserId,
+            new_password: newPassword
+        });
+        return result;
+    } catch (error) {
+        showToast(`បរាជ័យក្នុងការ Reset Password៖ ${error.message}`, 'error');
+        throw error;
+    }
+}
+
+
 // --- ៧. Setup Listeners and Autoloaders ---
 document.addEventListener('DOMContentLoaded', () => {
     // បង្កើត Modal Container ត្រៀមជាមុនសិន
     createEditModalMarkup();
+    createResetPasswordModalMarkup();
 
     // ធ្វើបច្ចុប្បន្នភាព Metrics លើ Dashboard
     if (document.getElementById('total-balance-khr')) {
@@ -817,13 +1084,29 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('transaction-table-body')) {
         loadTransactionsTable(1, 5);
     }
+    
+    // <b>ទាញយកបញ្ជីគណនីអ្នកប្រើប្រាស់ (User Management Table)</b>
+    if (document.getElementById('admin-users-table-body')) {
+        loadUsersTable();
+    }
 
-    // ភ្ជាប់ Event Listener សម្រាប់ឧបករណ៍ស្វែងរកថ្ងៃខែ (Date Filter Search)
+    // ភ្ជាប់ Event Listener សម្រាប់ឧបករណ៍ស្វែងរកថ្ងៃខែ (Date Filter Search & Dynamic Download Links)
     const dateInput = document.getElementById('search-date') || document.getElementById('filter-date');
     if (dateInput) {
         dateInput.addEventListener('change', (e) => {
             const selectedDate = e.target.value;
             loadTransactionsTable(1, txLimitPerPage, selectedDate);
+
+            // Update PDF and CSV links dynamically
+            const pdfLinks = document.querySelectorAll('a[href^="pdf.php"]');
+            const csvLinks = document.querySelectorAll('a[href^="export-csv.php"]');
+
+            pdfLinks.forEach(link => {
+                link.href = selectedDate ? `pdf.php?date=${selectedDate}` : 'pdf.php';
+            });
+            csvLinks.forEach(link => {
+                link.href = selectedDate ? `export-csv.php?date=${selectedDate}` : 'export-csv.php';
+            });
         });
     }
 

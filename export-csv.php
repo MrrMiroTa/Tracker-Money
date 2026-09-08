@@ -1,19 +1,20 @@
 <?php
 /**
- * export-csv-v2.php - Upgraded Secure CSV Export Service with Soft Delete and Date Filtering
+ * export-csv.php - Secure CSV Export Service with Scoped Access & Audit Trail
  * Part of the Khmer Payment Tracker and Financial Management System
  * 
- * Handles secure CSV export with Scoped Access, filtering out soft-deleted records,
- * and optional date filtering matched with the Frontend search state.
+ * This file allows users and administrators to export transaction records to a CSV file.
+ * It strictly adheres to the Principle of Least Privilege and records actions in audit logs.
  */
 
+// ១. ចាប់ផ្តើម Session និងរួមបញ្ចូលការកំណត់ប្រព័ន្ធ (Session & Central Config)
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
 require_once 'config.php';
 
-// ១. ផ្ទៀងផ្ទាត់ការចូលប្រើប្រាស់ (Authentication Guard)
+// ២. ផ្ទៀងផ្ទាត់ការចូលប្រើប្រាស់ (Authentication Guard)
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role'])) {
     http_response_code(401);
     echo json_encode(["status" => "error", "message" => "សូមចូលប្រើប្រាស់ប្រព័ន្ធជាមុនសិន។ (Unauthorized)"]);
@@ -27,11 +28,8 @@ $username = $_SESSION['username'] ?? 'Unknown';
 // ភ្ជាប់ទៅកាន់ Database ដោយសុវត្ថិភាព
 $db = getSecureDBConnection();
 
-// ២. ទាញយកប៉ារ៉ាម៉ែត្រកាលបរិច្ឆេទសម្រាប់ច្រោះទិន្នន័យ (Optional Date Filter)
-$filter_date = isset($_GET['date']) ? trim($_GET['date']) : '';
-
 // ៣. បែងចែកសិទ្ធិទាញយកទិន្នន័យ (Scoped Access Logic)
-// ច្រោះយកតែទិន្នន័យដែលមិនទាន់ត្រូវបានលុបប៉ុណ្ណោះ (is_deleted = 0)
+// Admin & Super Admin អាចទាញយកបានទាំងអស់ | User ធម្មតាអាចទាញយកបានតែទិន្នន័យផ្ទាល់ខ្លួនប៉ុណ្ណោះ (PoLP)
 $queryStr = "SELECT t.date, t.description, t.type, t.currency, t.amount, u.username as creator_name 
              FROM transactions t 
              LEFT JOIN users u ON t.user_id = u.id
@@ -39,13 +37,12 @@ $queryStr = "SELECT t.date, t.description, t.type, t.currency, t.amount, u.usern
 $params = [];
 
 if ($user_role !== 'super_admin' && $user_role !== 'admin') {
-    // គណនីធម្មតាមើលឃើញតែរបស់ខ្លួនឯង (PoLP Scoped Access)
     $queryStr .= " AND t.user_id = :user_id";
     $params[':user_id'] = $user_id;
 }
 
+$filter_date = isset($_GET['date']) ? trim($_GET['date']) : '';
 if (!empty($filter_date)) {
-    // ច្រោះតាមថ្ងៃខែជាក់លាក់ (DATE Comparison)
     $queryStr .= " AND DATE(t.date) = :filter_date";
     $params[':filter_date'] = $filter_date;
 }
@@ -69,7 +66,10 @@ try {
         INSERT INTO audit_logs (user_id, action, details, ip_address) 
         VALUES (:user_id, 'EXPORT_CSV_REPORT', :details, :ip_address)
     ");
-    $details = "Exported financial transactions to CSV. Scope: " . ($user_role === 'super_admin' || $user_role === 'admin' ? "ALL_RECORDS" : "OWN_RECORDS_ONLY") . ($filter_date ? " [Filtered Date: {$filter_date}]" : "");
+    $details = "Exported financial transactions to CSV. Scope: " . ($user_role === 'super_admin' || $user_role === 'admin' ? "ALL_RECORDS" : "OWN_RECORDS_ONLY");
+    if (!empty($filter_date)) {
+        $details .= " | Filtered Date: " . $filter_date;
+    }
     $ip_address = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
     
     $logStmt->execute([
@@ -83,7 +83,11 @@ try {
 
 // ៥. កំណត់ Headers សម្រាប់ទាញយកឯកសារ CSV (CSV Force Download Headers)
 header('Content-Type: text/csv; charset=utf-8');
-header('Content-Disposition: attachment; filename="payment_report_' . date('Y-m-d_H-i-s') . '.csv"');
+$filename_suffix = date('Y-m-d_H-i-s');
+if (!empty($filter_date)) {
+    $filename_suffix = 'filtered_' . $filter_date . '_' . date('H-i-s');
+}
+header('Content-Disposition: attachment; filename="payment_report_' . $filename_suffix . '.csv"');
 
 // បញ្ចូល UTF-8 BOM ដើម្បីឱ្យ Microsoft Excel បង្ហាញអក្សរខ្មែរ និងនិមិត្តសញ្ញាប្រាក់រៀល (៛) បានត្រឹមត្រូវ
 echo "\xEF\xBB\xBF";
@@ -103,6 +107,7 @@ fputcsv($output, [
 
 // ៦. បំពេញទិន្នន័យប្រតិបត្តិការទៅក្នុងឯកសារ CSV (Populate CSV Rows)
 foreach ($transactions as $row) {
+    // កែសម្រួលការបង្ហាញប្រភេទឱ្យងាយស្រួលយល់ជាភាសាខ្មែរ
     $type_kh = $row['type'] === 'income' ? 'ចំណូល (Income)' : 'ចំណាយ (Expense)';
     $amount_formatted = $row['currency'] === 'KHR' 
         ? number_format($row['amount']) . ' ៛' 

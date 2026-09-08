@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Sep 04, 2026 at 03:46 PM
+-- Generation Time: Sep 06, 2026 at 08:07 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -18,7 +18,7 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- Database: `payment_tracker`
+-- Database: `payment_db`
 --
 
 -- --------------------------------------------------------
@@ -58,12 +58,40 @@ CREATE TABLE `audit_logs` (
 --
 
 INSERT INTO `audit_logs` (`id`, `user_id`, `action`, `target_user_id`, `details`, `ip_address`, `created_at`) VALUES
-(1, 2, 'LOGIN_SUCCESS', NULL, 'Successfully signed in.', '::1', '2026-08-31 12:04:18'),
-(2, 2, 'ENABLE_MFA', 2, 'User activated Google Authenticator MFA', '::1', '2026-08-31 13:40:57'),
-(3, 2, 'LOGIN_SUCCESS', NULL, 'Successfully signed in.', '::1', '2026-09-02 15:41:22'),
-(4, 2, 'EXPORT_CSV_REPORT', NULL, 'Exported financial transactions to CSV. Scope: ALL_RECORDS', '::1', '2026-09-02 16:43:27'),
-(5, 2, 'LOGIN_SUCCESS', NULL, 'Successfully signed in.', '::1', '2026-09-02 16:43:51'),
-(6, 2, 'ADD_TRANSACTION', NULL, 'Added transaction ID: 4 (Yessss) of amount 500 USD [Type: income].', '::1', '2026-09-02 16:44:44');
+(1, 2, 'LOGIN_SUCCESS', NULL, 'Successfully signed in.', '::1', '2026-08-31 05:04:18'),
+(2, 2, 'ENABLE_MFA', 2, 'User activated Google Authenticator MFA', '::1', '2026-08-31 06:40:57'),
+(3, 2, 'LOGIN_SUCCESS', NULL, 'Successfully signed in.', '::1', '2026-09-01 06:47:38'),
+(4, 2, 'DISABLE_MFA', 2, 'User deactivated Google Authenticator MFA', '::1', '2026-09-01 06:48:03'),
+(5, 2, 'ENABLE_MFA', 2, 'User activated Google Authenticator MFA', '::1', '2026-09-01 06:48:39'),
+(6, 2, 'LOGIN_SUCCESS', NULL, 'Successfully signed in.', '::1', '2026-09-02 04:33:05'),
+(7, 2, 'LOGIN_SUCCESS', NULL, 'Successfully signed in.', '::1', '2026-09-02 06:06:49'),
+(8, 2, 'LOGIN_SUCCESS', NULL, 'Successfully signed in.', '::1', '2026-09-02 06:19:58'),
+(9, 2, 'EXPORT_CSV_REPORT', NULL, 'Exported financial transactions to CSV. Scope: ALL_RECORDS', '::1', '2026-09-02 06:20:29'),
+(10, 2, 'LOGIN_SUCCESS', NULL, 'Successfully signed in.', '::1', '2026-09-02 06:30:50'),
+(11, 2, 'ADD_TRANSACTION', NULL, 'Added transaction ID: 4 (Yesss) of amount 50 USD [Type: expense].', '::1', '2026-09-03 06:28:51'),
+(12, 2, 'EXPORT_PDF_REPORT', NULL, 'Exported financial transaction PDF report. Scope: ALL_RECORDS', '::1', '2026-09-03 06:54:42'),
+(13, 2, 'EXPORT_PDF_REPORT', NULL, 'Exported financial transaction PDF report. Scope: ALL_RECORDS', '::1', '2026-09-03 06:54:43'),
+(14, 2, 'EXPORT_PDF_REPORT', NULL, 'Exported financial transaction PDF report. Scope: ALL_RECORDS', '::1', '2026-09-03 06:54:43'),
+(15, 2, 'EXPORT_PDF_REPORT', NULL, 'Exported financial transaction PDF report. Scope: ALL_RECORDS', '::1', '2026-09-03 06:55:03'),
+(16, 2, 'LOGIN_SUCCESS', NULL, 'Successfully signed in.', '::1', '2026-09-03 06:55:50'),
+(17, 2, 'EXPORT_PDF_REPORT', NULL, 'Exported financial transaction PDF report. Scope: ALL_RECORDS', '::1', '2026-09-03 07:51:39'),
+(18, 2, 'LOGIN_SUCCESS', NULL, 'Successfully signed in.', '::1', '2026-09-04 06:28:18'),
+(19, 2, 'EXPORT_PDF_REPORT', NULL, 'Exported financial transaction PDF report. Scope: ALL_RECORDS', '::1', '2026-09-04 06:29:29'),
+(20, 2, 'EXPORT_PDF_REPORT', NULL, 'Exported financial transaction PDF report. Scope: ALL_RECORDS', '::1', '2026-09-04 06:29:33'),
+(21, 2, 'EXPORT_PDF_REPORT', NULL, 'Exported financial transaction PDF report. Scope: ALL_RECORDS', '::1', '2026-09-04 06:29:34'),
+(22, 2, 'EXPORT_PDF_REPORT', NULL, 'Exported financial transaction PDF report. Scope: ALL_RECORDS', '::1', '2026-09-04 06:29:34'),
+(23, 2, 'ADD_TRANSACTION', NULL, 'Added transaction ID: 5 (Laurel Lucas) of amount 31 USD [Type: expense].', '::1', '2026-09-04 06:44:09'),
+(24, 2, 'EXPORT_PDF_REPORT', NULL, 'Exported financial transaction PDF report. Scope: ALL_RECORDS', '::1', '2026-09-06 02:55:11'),
+(25, 2, 'LOGIN_SUCCESS', NULL, 'Successfully signed in.', '::1', '2026-09-06 02:56:09'),
+(26, 1, 'LOGIN_SUCCESS', NULL, 'Successfully signed in.', '::1', '2026-09-06 04:08:17'),
+(27, 1, 'LOGIN_SUCCESS', NULL, 'Successfully signed in.', '::1', '2026-09-06 04:18:47'),
+(28, 2, 'LOGIN_SUCCESS', NULL, 'Successfully signed in.', '::1', '2026-09-06 04:19:41'),
+(29, 2, 'LOGIN_SUCCESS', NULL, 'Successfully signed in.', '::1', '2026-09-06 04:27:05'),
+(30, 2, 'CREATE_USER', 4, 'Created new user account: \'user1\' with role: \'user\'', '::1', '2026-09-06 04:27:29'),
+(31, 4, 'LOGIN_SUCCESS', NULL, 'Successfully signed in.', '::1', '2026-09-06 04:27:51'),
+(32, 2, 'LOGIN_SUCCESS', NULL, 'Successfully signed in.', '::1', '2026-09-06 05:21:48'),
+(33, 2, 'EXPORT_PDF_REPORT', NULL, 'Exported financial transaction report. Scope: ALL_RECORDS', '::1', '2026-09-06 06:06:27'),
+(34, 2, 'EXPORT_CSV_REPORT', NULL, 'Exported financial transactions to CSV. Scope: ALL_RECORDS', '::1', '2026-09-06 06:06:31');
 
 -- --------------------------------------------------------
 
@@ -89,10 +117,11 @@ CREATE TABLE `transactions` (
 --
 
 INSERT INTO `transactions` (`id`, `user_id`, `description`, `amount`, `currency`, `type`, `category`, `is_deleted`, `date`, `created_at`) VALUES
-(1, 2, 'Meat loaf', 3000.00, 'KHR', 'expense', 'ម្ហូបអាហារ', 0, '2026-08-20 09:12:00', '2026-09-02 15:45:48'),
-(2, 2, 'Opening Salary', 1500.00, 'USD', 'income', 'ប្រាក់ខែ', 0, '2026-08-28 08:00:00', '2026-09-02 15:45:48'),
-(3, 2, 'Office Supplies', 45000.00, 'KHR', 'expense', 'សម្ភារៈការិយាល័យ', 0, '2026-08-29 14:30:00', '2026-09-02 15:45:48'),
-(4, 2, 'Yessss', 500.00, 'USD', 'income', 'ម្ហូបអាហារ', 0, '2026-09-02 23:43:00', '2026-09-02 16:44:44');
+(1, 2, 'Meat loaf', 3000.00, 'KHR', 'expense', 'ម្ហូបអាហារ', 0, '2026-08-20 09:12:00', '2026-09-01 07:17:59'),
+(2, 2, 'Opening Salary', 1500.00, 'USD', 'income', 'ប្រាក់ខែ', 0, '2026-08-28 08:00:00', '2026-09-01 07:17:59'),
+(3, 2, 'Office Supplies', 45000.00, 'KHR', 'expense', 'សម្ភារៈការិយាល័យ', 0, '2026-08-29 14:30:00', '2026-09-01 07:17:59'),
+(4, 2, 'Yesss', 50.00, 'USD', 'expense', 'Food', 0, '2026-09-03 13:23:00', '2026-09-03 06:28:51'),
+(5, 2, 'Laurel Lucas', 31.00, 'USD', 'expense', 'Quod dolor sint temp', 0, '2026-09-04 02:02:00', '2026-09-04 06:44:09');
 
 -- --------------------------------------------------------
 
@@ -114,7 +143,7 @@ CREATE TABLE `transaction_history` (
   `new_currency` enum('KHR','USD') DEFAULT NULL,
   `new_type` enum('income','expense') DEFAULT NULL,
   `new_category` varchar(100) DEFAULT NULL,
-  `action_type` enum('UPDATE','DELETE') NOT NULL,
+  `action_type` enum('UPDATE','DELETE','RESTORE') NOT NULL,
   `actioned_by` int(11) NOT NULL,
   `actioned_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -140,9 +169,10 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `username`, `password_hash`, `role`, `status`, `mfa_secret`, `created_at`) VALUES
-(1, 'superadmin_cambodia', '$2y$10$l3xzH43TkC4vAEgzkTOEQ.hLNjiBWSrjwgyDVDjsU9rjWIoYe5w7O', 'super_admin', 'active', NULL, '2026-09-04 13:32:21'),
-(2, 'admin_sophors', '$2y$10$l3xzH43TkC4vAEgzkTOEQ.hLNjiBWSrjwgyDVDjsU9rjWIoYe5w7O', 'admin', 'active', NULL, '2026-09-04 13:32:21'),
-(3, 'khmer_user1', '$2y$10$l3xzH43TkC4vAEgzkTOEQ.hLNjiBWSrjwgyDVDjsU9rjWIoYe5w7O', 'user', 'active', NULL, '2026-09-04 13:32:21');
+(1, 'superadmin_cambodia', '$2y$10$90idCMGub0jadwISIxxD5eIzM0d3lcYg7/q5KvmcrAqO3IaOWX56K', 'super_admin', 'active', NULL, '2026-08-31 05:03:45'),
+(2, 'admin_sophors', '$2y$10$90idCMGub0jadwISIxxD5eIzM0d3lcYg7/q5KvmcrAqO3IaOWX56K', 'admin', 'active', 'FS4UEAOXNKOT4C44', '2026-08-31 05:03:45'),
+(3, 'khmer_user1', '$2y$10$90idCMGub0jadwISIxxD5eIzM0d3lcYg7/q5KvmcrAqO3IaOWX56K', 'user', 'active', NULL, '2026-08-31 05:03:45'),
+(4, 'user1', '$2y$10$KrLWtHu/s/ZuSQsX.ZmQNeH1icqx07R2lZQpBm4J8toE5O5nGR6nq', 'user', 'active', NULL, '2026-09-06 04:27:29');
 
 --
 -- Indexes for dumped tables
@@ -202,13 +232,13 @@ ALTER TABLE `admin_approvals`
 -- AUTO_INCREMENT for table `audit_logs`
 --
 ALTER TABLE `audit_logs`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=35;
 
 --
 -- AUTO_INCREMENT for table `transactions`
 --
 ALTER TABLE `transactions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `transaction_history`
@@ -220,7 +250,7 @@ ALTER TABLE `transaction_history`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- Constraints for dumped tables
