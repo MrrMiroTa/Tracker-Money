@@ -12,11 +12,11 @@
 // ដើម្បីជៀសវាងការលេចធ្លាយលេខកូដសម្ងាត់ទៅកាន់ GitHub (Zero-Credentials in Repo)។
 // ប្រសិនបើគ្មានការកំណត់នៅលើ Wasmer Dashboard ទេ វានឹងប្រើប្រាស់តម្លៃលំនាំដើម (Default Values) ខាងក្រោម។
 
-define('DB_HOST', getenv('WASMER_MYSQL_HOST') ?: (getenv('DB_HOST') ?: 'YOUR_WASMER_DB_HOST'));
-define('DB_PORT', getenv('WASMER_MYSQL_PORT') ?: (getenv('DB_PORT') ?: '3306'));
-define('DB_NAME', getenv('WASMER_MYSQL_NAME') ?: (getenv('DB_NAME') ?: 'YOUR_WASMER_DB_NAME'));
-define('DB_USER', getenv('WASMER_MYSQL_USER') ?: (getenv('DB_USER') ?: 'YOUR_WASMER_DB_USER'));
-define('DB_PASS', getenv('WASMER_MYSQL_PASSWORD') ?: (getenv('DB_PASS') ?: 'YOUR_WASMER_DB_PASSWORD'));
+define('DB_HOST', getenv('WASMER_MYSQL_HOST') ?: (getenv('DB_HOST') ?: 'db.fr-roub1.bengt.wasmernet.com'));
+define('DB_PORT', getenv('WASMER_MYSQL_PORT') ?: (getenv('DB_PORT') ?: '20184'));
+define('DB_NAME', getenv('WASMER_MYSQL_NAME') ?: (getenv('DB_NAME') ?: 'tracker_db'));
+define('DB_USER', getenv('WASMER_MYSQL_USER') ?: (getenv('DB_USER') ?: 'user_79e3ac56'));
+define('DB_PASS', getenv('WASMER_MYSQL_PASSWORD') ?: (getenv('DB_PASS') ?: 'pw_WAKgzQiuzrRlw58FDYQlm080Up8HkHih'));
 
 // --- ២. ការកំណត់សន្តិសុខប្រព័ន្ធ (Security Configuration) ---
 // កំណត់ស្ថានភាពដំណើរការប្រព័ន្ធ៖ true សម្រាប់ម៉ូដសាកល្បង (Simulation) / false សម្រាប់ប្រព័ន្ធដំណើរការពិត
