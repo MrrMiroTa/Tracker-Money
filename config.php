@@ -14,9 +14,9 @@
 
 define('DB_HOST', getenv('WASMER_MYSQL_HOST') ?: (getenv('DB_HOST') ?: 'db.fr-roub1.bengt.wasmernet.com'));
 define('DB_PORT', getenv('WASMER_MYSQL_PORT') ?: (getenv('DB_PORT') ?: '20184'));
-define('DB_NAME', getenv('WASMER_MYSQL_NAME') ?: (getenv('DB_NAME') ?: 'tracker_db'));
-define('DB_USER', getenv('WASMER_MYSQL_USER') ?: (getenv('DB_USER') ?: 'user_79e3ac56'));
-define('DB_PASS', getenv('WASMER_MYSQL_PASSWORD') ?: (getenv('DB_PASS') ?: 'pw_WAKgzQiuzrRlw58FDYQlm080Up8HkHih'));
+define('DB_NAME', getenv('WASMER_MYSQL_NAME') ?: (getenv('DB_NAME') ?: 'db_f5500176'));
+define('DB_USER', getenv('WASMER_MYSQL_USER') ?: (getenv('DB_USER') ?: 'user_ea3af2a0'));
+define('DB_PASS', getenv('WASMER_MYSQL_PASSWORD') ?: (getenv('DB_PASS') ?: 'pw_q7C4JpkrPETlFukJ8FBKgl6Q2azdXepu'));
 
 // --- ២. ការកំណត់សន្តិសុខប្រព័ន្ធ (Security Configuration) ---
 // កំណត់ស្ថានភាពដំណើរការប្រព័ន្ធ៖ true សម្រាប់ម៉ូដសាកល្បង (Simulation) / false សម្រាប់ប្រព័ន្ធដំណើរការពិត
