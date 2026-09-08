@@ -32,6 +32,7 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
     <title>ប្រព័ន្ធគ្រប់គ្រងហិរញ្ញវត្ថុ - Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@300;400;600;700&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="admin-style.css">
+    <link rel="icon" type="image/png" href="icon.png">
 </head>
 <body>
 

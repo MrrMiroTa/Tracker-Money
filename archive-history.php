@@ -36,6 +36,7 @@ $username = $_SESSION['username'] ?? 'Unknown';
     <title>បណ្ណសារសវនកម្មប្រតិបត្តិការ - Admin Control Panel</title>
     <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@400;600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet"/>
     <link rel="stylesheet" href="admin-style.css"/>
+    <link rel="icon" href="icon.png">
 </head>
 <body>
 
