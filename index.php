@@ -1,11 +1,13 @@
 <?php
 /**
- * index-v8.php - Main Financial Dashboard with Fully Responsive & Clear Styling
+ * index-v10.php - Main Financial Dashboard with Mobile-First Responsive Design (iPhone 16 Pro Max Optimized)
  * Part of the Khmer Payment Tracker and Financial Management System
  * 
- * This file serves as the core user dashboard. It displays real-time financial widgets (metrics),
- * a transaction creation form, a paginated transaction history table, and admin control panels.
- * Features mobile-first responsive layout grid and high legibility Khmer font styling.
+ * Features:
+ * - Zero horizontal scroll on mobile devices (<768px & iPhone 16 Pro Max)
+ * - Collapsible Hamburger Navigation Bar
+ * - Mobile Card-View Transformation for Financial Tables
+ * - Touch-friendly form elements & metrics widgets
  */
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -28,15 +30,16 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
 <html lang="km">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ប្រព័ន្ធគ្រប់គ្រងហិរញ្ញវត្ថុ - Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@300;400;600;700&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="admin-style-v5.css">
     <link rel="stylesheet" href="admin-style.css">
     <link rel="icon" type="image/png" href="icon.png">
 </head>
 <body>
 
-    <!-- Dynamic Session-to-LocalStorage Syncer (CRITICAL SECURITY FIX) -->
+    <!-- Dynamic Session-to-LocalStorage Syncer (SECURITY FIX) -->
     <script>
         localStorage.setItem('current_user', JSON.stringify({
             user_id: <?php echo json_encode($_SESSION['user_id']); ?>,
@@ -45,12 +48,12 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
         }));
     </script>
 
-    <!-- Navigation Bar with Burger Toggle -->
+    <!-- Navigation Bar with Mobile Burger Toggle -->
     <nav class="navbar">
         <div class="navbar-brand">
             <span>📊 ប្រព័ន្ធគ្រប់គ្រងហិរញ្ញវត្ថុ</span>
         </div>
-        <button class="navbar-toggle" id="navbar-toggle-btn" aria-label="Toggle Navigation">
+        <button class="navbar-toggle" id="navbar-toggle-btn" aria-label="Toggle Navigation Menu">
             <span class="bar"></span>
             <span class="bar"></span>
             <span class="bar"></span>
@@ -74,71 +77,70 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
             <p>នេះជាផ្ទាំងស្ថិតិហិរញ្ញវត្ថុប្រចាំថ្ងៃរបស់អ្នក។ តួនាទីបច្ចុប្បន្ន៖ <strong style="text-transform: uppercase; color: #2563eb;"><?php echo htmlspecialchars($role); ?></strong></p>
         </div>
 
-        <!-- Dashboard Widgets (Metrics) -->
+        <!-- Dashboard Widgets (Metrics Grid) -->
         <div class="metrics-grid">
             
             <!-- ១. កាតសមតុល្យសរុប -->
             <div class="metric-card">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
-                    <h3 style="margin: 0; font-size: 1.1rem; color: #374151;">💰 សមតុល្យសរុប (Total Balance)</h3>
-                    <span style="font-size: 1.5rem;">💵</span>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+                    <h3 style="margin: 0; font-size: 1.05rem; color: #374151;">💰 សមតុល្យសរុប (Total Balance)</h3>
+                    <span style="font-size: 1.35rem;">💵</span>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 0.25rem;">
-                    <span style="font-size: 0.9rem; color: #6b7280;">KHR (រៀល)៖ <strong id="total-balance-khr" style="font-size: 1.25rem; color: #10b981;">0 ៛</strong></span>
-                    <span style="font-size: 0.9rem; color: #6b7280;">USD (ដុល្លារ)៖ <strong id="total-balance-usd" style="font-size: 1.25rem; color: #10b981;">$0.00</strong></span>
+                    <span style="font-size: 0.88rem; color: #6b7280;">KHR (រៀល)៖ <strong id="total-balance-khr" style="font-size: 1.2rem; color: #10b981;">0 ៛</strong></span>
+                    <span style="font-size: 0.88rem; color: #6b7280;">USD (ដុល្លារ)៖ <strong id="total-balance-usd" style="font-size: 1.2rem; color: #10b981;">$0.00</strong></span>
                 </div>
             </div>
 
             <!-- ២. កាតចំណូលសរុប -->
             <div class="metric-card">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
-                    <h3 style="margin: 0; font-size: 1.1rem; color: #374151;">📈 ចំណូលសរុប (Total Income)</h3>
-                    <span style="font-size: 1.5rem;">📈</span>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+                    <h3 style="margin: 0; font-size: 1.05rem; color: #374151;">📈 ចំណូលសរុប (Total Income)</h3>
+                    <span style="font-size: 1.35rem;">📈</span>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 0.25rem;">
-                    <span style="font-size: 0.9rem; color: #6b7280;">KHR (រៀល)៖ <strong id="total-income-khr" style="font-size: 1.25rem; color: #10b981;">0 ៛</strong></span>
-                    <span style="font-size: 0.9rem; color: #6b7280;">USD (ដុល្លារ)៖ <strong id="total-income-usd" style="font-size: 1.25rem; color: #10b981;">$0.00</strong></span>
+                    <span style="font-size: 0.88rem; color: #6b7280;">KHR (រៀល)៖ <strong id="total-income-khr" style="font-size: 1.2rem; color: #10b981;">0 ៛</strong></span>
+                    <span style="font-size: 0.88rem; color: #6b7280;">USD (ដុល្លារ)៖ <strong id="total-income-usd" style="font-size: 1.2rem; color: #10b981;">$0.00</strong></span>
                 </div>
             </div>
 
             <!-- ៣. កាតចំណាយសរុប -->
             <div class="metric-card">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
-                    <h3 style="margin: 0; font-size: 1.1rem; color: #374151;">📉 ចំណាយសរុប (Total Expense)</h3>
-                    <span style="font-size: 1.5rem;">📉</span>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+                    <h3 style="margin: 0; font-size: 1.05rem; color: #374151;">📉 ចំណាយសរុប (Total Expense)</h3>
+                    <span style="font-size: 1.35rem;">📉</span>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 0.25rem;">
-                    <span style="font-size: 0.9rem; color: #6b7280;">KHR (រៀល)៖ <strong id="total-expense-khr" style="font-size: 1.25rem; color: #ef4444;">0 ៛</strong></span>
-                    <span style="font-size: 0.9rem; color: #6b7280;">USD (ដុល្លារ)៖ <strong id="total-expense-usd" style="font-size: 1.25rem; color: #ef4444;">$0.00</strong></span>
+                    <span style="font-size: 0.88rem; color: #6b7280;">KHR (រៀល)៖ <strong id="total-expense-khr" style="font-size: 1.2rem; color: #ef4444;">0 ៛</strong></span>
+                    <span style="font-size: 0.88rem; color: #6b7280;">USD (ដុល្លារ)៖ <strong id="total-expense-usd" style="font-size: 1.2rem; color: #ef4444;">$0.00</strong></span>
                 </div>
             </div>
-
 
         </div>
 
         <?php if ($role === 'super_admin' || $role === 'admin'): ?>
-        <!-- របារបញ្ជាអភិបាលប្រព័ន្ធ (Admin Panel Toggle Control Bar) -->
-        <div class="admin-control-bar" style="display: flex; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap; background-color: var(--white); padding: 1rem; border-radius: var(--radius-lg); border: 1px solid var(--gray-border); box-shadow: var(--shadow);">
-            <span style="font-weight: 700; color: #1e3a8a; display: flex; align-items: center; gap: 8px; width: 100%; margin-bottom: 0.5rem; font-size: 1rem;">
+        <!-- របារបញ្ជាអភិបាលប្រព័ន្ធ (Admin Control Bar) -->
+        <div class="admin-control-bar">
+            <span style="font-weight: 700; color: #1e3a8a; display: flex; align-items: center; gap: 8px; width: 100%; margin-bottom: 0.25rem; font-size: 0.95rem;">
                 🛠️ ផ្ទាំងគ្រប់គ្រងសិទ្ធិអភិបាលប្រព័ន្ធ (Administrative Controls)
             </span>
-            <button id="toggle-create-user-btn" class="btn" style="background-color: #10b981; color: white; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; font-size: 0.9rem; border-radius: var(--radius-sm); border: none; cursor: pointer; transition: all 0.2s;">
+            <button id="toggle-create-user-btn" class="btn btn-primary" style="background-color: #10b981; border: none;">
                 👤 បង្កើតគណនីថ្មី (Create Account)
             </button>
-            <button id="toggle-manage-users-btn" class="btn" style="background-color: #2563eb; color: white; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; font-size: 0.9rem; border-radius: var(--radius-sm); border: none; cursor: pointer; transition: all 0.2s;">
+            <button id="toggle-manage-users-btn" class="btn btn-primary" style="background-color: #2563eb; border: none;">
                 👥 គ្រប់គ្រងគណនី (Manage Users)
             </button>
         </div>
 
-        <!-- ធុងផ្ទុកផ្ទាំងអភិបាលប្រព័ន្ធ (Admin Panels Collapsible Container - Spans Full Width for high clarity) -->
+        <!-- ធុងផ្ទុកផ្ទាំងអភិបាលប្រព័ន្ធ (Collapsible Admin Panels) -->
         <div id="admin-panels-container" style="margin-bottom: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem;">
             
-            <!-- ផ្ទាំងបង្កើតអ្នកប្រើប្រាស់ថ្មី (Collapsible Card 1) -->
-            <div id="create-user-panel" class="card" style="display: none; border-left: 5px solid #10b981; animation: slideDownPanel 0.25s ease-out; margin: 0;">
-                <h2 class="form-title" style="color: #10b981; border-bottom: 2px solid #ecfdf5; display: flex; align-items: center; gap: 8px;">
+            <!-- ផ្ទាំងបង្កើតអ្នកប្រើប្រាស់ថ្មី -->
+            <div id="create-user-panel" class="card" style="display: none; border-left: 5px solid #10b981;">
+                <h2 class="form-title" style="color: #10b981;">
                     👤 បង្កើតគណនីអ្នកប្រើប្រាស់ថ្មី
                 </h2>
-                <form id="admin-create-user-form" style="max-width: 500px; margin: 0 auto; padding: 1rem 0;">
+                <form id="admin-create-user-form" style="max-width: 500px; margin: 0 auto; padding: 0.5rem 0;">
                     <div class="form-group">
                         <label for="new-username">ឈ្មោះអ្នកប្រើប្រាស់ (Username)</label>
                         <input type="text" id="new-username" required placeholder="ឧ. vichea_dev" autocomplete="username">
@@ -150,35 +152,35 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
                     <div class="form-group">
                         <label for="new-role">តួនាទី (User Role)</label>
                         <select id="new-role" required>
-                            <option value="user">អ្នកប្រើប្រាស់ទូទៅ (USER)</option>
+                            <option value="user">User (អ្នកប្រើប្រាស់ធម្មតា)</option>
+                            <option value="admin">Admin (អ្នកគ្រប់គ្រង)</option>
                             <?php if ($role === 'super_admin'): ?>
-                                <option value="admin">អភិបាលប្រព័ន្ធ (ADMIN)</option>
-                                <option value="super_admin">អភិបាលជាន់ខ្ពស់ (SUPER ADMIN)</option>
+                                <option value="super_admin">Super Admin (អភិបាលកំពូល)</option>
                             <?php endif; ?>
                         </select>
                     </div>
-                    <button type="submit" class="btn-submit" style="background-color: #10b981;">បង្កើតគណនី (Create)</button>
+                    <button type="submit" class="btn-submit" style="background-color: #10b981;">បង្កើតគណនី (Create User)</button>
                 </form>
             </div>
 
-            <!-- ផ្ទាំងបញ្ជីឈ្មោះអ្នកប្រើប្រាស់ និងសកម្មភាព (Collapsible Card 2) -->
-            <div id="manage-users-panel" class="card" style="display: none; border-left: 5px solid #2563eb; animation: slideDownPanel 0.25s ease-out; margin: 0;">
-                <h2 class="form-title" style="color: #2563eb; border-bottom: 2px solid #eff6ff; display: flex; align-items: center; gap: 8px;">
-                    👥 គ្រប់គ្រងគណនីអ្នកប្រើប្រាស់
+            <!-- ផ្ទាំងគ្រប់គ្រងអ្នកប្រើប្រាស់ -->
+            <div id="manage-users-panel" class="card" style="display: none; border-left: 5px solid #2563eb;">
+                <h2 class="form-title" style="color: #2563eb;">
+                    👥 គ្រប់គ្រងគណនី និងអនុម័តសិទ្ធិ (User Management)
                 </h2>
                 <div class="table-responsive">
-                    <table class="transaction-table" id="users-table">
+                    <table class="table" style="width: 100%;">
                         <thead>
-                            <tr>
-                                <th>ឈ្មោះអ្នកប្រើប្រាស់ (Username)</th>
-                                <th>តួនាទី (Role)</th>
-                                <th>ស្ថានភាព (Status)</th>
-                                <th style="text-align: center;">សកម្មភាព (Actions)</th>
+                            <tr style="background-color: #f8fafc;">
+                                <th>ឈ្មោះអ្នកប្រើប្រាស់</th>
+                                <th>តួនាទី</th>
+                                <th>ស្ថានភាព</th>
+                                <th style="text-align: center;">សកម្មភាព</th>
                             </tr>
                         </thead>
-                        <tbody id="admin-users-table-body">
+                        <tbody id="manage-users-table-body">
                             <tr>
-                                <td colspan="4" style="text-align: center; padding: 20px; color: #6b7280;">កំពុងទាញយកទិន្នន័យ...</td>
+                                <td colspan="4" style="text-align: center; padding: 20px; color: #64748b;">កំពុងទាញយកបញ្ជីអ្នកប្រើប្រាស់...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -186,13 +188,6 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
             </div>
 
         </div>
-
-        <style>
-            @keyframes slideDownPanel {
-                from { opacity: 0; transform: translateY(-10px); }
-                to { opacity: 1; transform: translateY(0); }
-            }
-        </style>
         <?php endif; ?>
 
         <!-- Main Layout Grid -->
@@ -240,9 +235,6 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
                 </form>
             </div>
 
-            
-
-
             <!-- ផ្នែកបញ្ជីប្រតិបត្តិការហិរញ្ញវត្ថុ (Transaction Table) -->
             <div class="card">
                 <div class="table-header-row">
@@ -275,121 +267,37 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
                     </table>
                 </div>
 
-                <!-- របារគ្រប់គ្រងទំព័រ (Pagination Controls Grid) -->
+                <!-- របារគ្រប់គ្រងទំព័រ (Pagination Controls) -->
                 <div id="pagination-controls"></div>
             </div>
 
         </div>
     </div>
 
-    <script src="admin-integration.js"></script>
+    <!-- Burger Menu JavaScript Engine -->
     <script>
-                // Burger menu toggle logic
         document.addEventListener('DOMContentLoaded', () => {
             const toggleBtn = document.getElementById('navbar-toggle-btn');
             const menu = document.getElementById('navbar-menu');
             if (toggleBtn && menu) {
-                toggleBtn.addEventListener('click', () => {
+                toggleBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
                     toggleBtn.classList.toggle('active');
                     menu.classList.toggle('active');
                 });
-            }
-        });
 
-        // Toggle Admin Collapsible Panels
-        document.addEventListener('DOMContentLoaded', () => {
-            const toggleCreateBtn = document.getElementById('toggle-create-user-btn');
-            const toggleManageBtn = document.getElementById('toggle-manage-users-btn');
-            
-            const createUserPanel = document.getElementById('create-user-panel');
-            const manageUsersPanel = document.getElementById('manage-users-panel');
-            
-            if (toggleCreateBtn && createUserPanel) {
-                toggleCreateBtn.addEventListener('click', () => {
-                    if (createUserPanel.style.display === 'none') {
-                        // Show Create and Hide Manage
-                        createUserPanel.style.display = 'block';
-                        manageUsersPanel.style.display = 'none';
-                        
-                        toggleCreateBtn.style.backgroundColor = '#059669'; // Darker green
-                        toggleCreateBtn.innerHTML = '✕ បិទផ្ទាំងបង្កើត (Close Create)';
-                        
-                        // Reset Manage Button
-                        toggleManageBtn.style.backgroundColor = '#2563eb';
-                        toggleManageBtn.innerHTML = '👥 គ្រប់គ្រងគណនី (Manage Users)';
-                    } else {
-                        createUserPanel.style.display = 'none';
-                        toggleCreateBtn.style.backgroundColor = '#10b981';
-                        toggleCreateBtn.innerHTML = '👤 បង្កើតគណនីថ្មី (Create Account)';
+                document.addEventListener('click', (e) => {
+                    if (!toggleBtn.contains(e.target) && !menu.contains(e.target)) {
+                        toggleBtn.classList.remove('active');
+                        menu.classList.remove('active');
                     }
                 });
-            }
-            
-            if (toggleManageBtn && manageUsersPanel) {
-                toggleManageBtn.addEventListener('click', () => {
-                    if (manageUsersPanel.style.display === 'none') {
-                        // Show Manage and Hide Create
-                        manageUsersPanel.style.display = 'block';
-                        createUserPanel.style.display = 'none';
-                        
-                        toggleManageBtn.style.backgroundColor = '#1d4ed8'; // Darker blue
-                        toggleManageBtn.innerHTML = '✕ បិទផ្ទាំងគ្រប់គ្រង (Close Manage)';
-                        
-                        // Reset Create Button
-                        toggleCreateBtn.style.backgroundColor = '#10b981';
-                        toggleCreateBtn.innerHTML = '👤 បង្កើតគណនីថ្មី (Create Account)';
-                        
-                        // Reload table when opened
-                        if (typeof loadUsersTable === 'function') {
-                            loadUsersTable();
-                        }
-                    } else {
-                        manageUsersPanel.style.display = 'none';
-                        toggleManageBtn.style.backgroundColor = '#2563eb';
-                        toggleManageBtn.innerHTML = '👥 គ្រប់គ្រងគណនី (Manage Users)';
-                    }
-                });
-            }
-        });
-
-        // Form បង្កើតអ្នកប្រើប្រាស់ថ្មីដោយ Admin
-        document.addEventListener('DOMContentLoaded', () => {
-            const createUserForm = document.getElementById('admin-create-user-form');
-            if (createUserForm) {
-                createUserForm.addEventListener('submit', async (e) => {
-                    e.preventDefault();
-                    
-                    const usernameInput = document.getElementById('new-username');
-                    const passwordInput = document.getElementById('new-password');
-                    const roleInput = document.getElementById('new-role');
-                    
-                    const username = usernameInput.value.trim();
-                    const password = passwordInput.value;
-                    const role = roleInput.value;
-                    
-                    try {
-                        await createUserByAdmin(username, password, role);
-                        createUserForm.reset();
-                    } catch (error) {
-                        console.error('Error creating user:', error);
-                    }
-                });
-            }
-        });
-
-        // Set default date input value to current local datetime
-        document.addEventListener('DOMContentLoaded', () => {
-            const dateInput = document.getElementById('date');
-            if (dateInput) {
-                const now = new Date();
-                const year = now.getFullYear();
-                const month = String(now.getMonth() + 1).padStart(2, '0');
-                const day = String(now.getDate()).padStart(2, '0');
-                const hours = String(now.getHours()).padStart(2, '0');
-                const minutes = String(now.getMinutes()).padStart(2, '0');
-                dateInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
             }
         });
     </script>
+
+    <!-- Load Frontend API Integration Script -->
+    <script src="admin-integration-v12.js"></script>
+    <script src="admin-integration.js"></script>
 </body>
 </html>
