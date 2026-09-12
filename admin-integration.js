@@ -1,8 +1,9 @@
 /**
- * admin-integration-v13.js - Frontend JavaScript Engine
+ * admin-integration-v14.js - Complete Production Frontend JavaScript Engine
  * Part of the Khmer Payment Tracker and Financial Management System
  * 
  * Features:
+ * - Robust parsing for raw_type ('income'/'expense'), raw_currency ('USD'/'KHR'), raw_amount
  * - Real-time Chart.js Analytics (Income vs Expense Bar Chart, Category Doughnut Chart)
  * - Exchange Rate Converter ($1 USD = X KHR) & Unified Total Balance Calculation
  * - Category Budget Tracking & Threshold Warnings (>80% and Exceeded)
@@ -28,7 +29,7 @@ const categoryBudgets = {
     'Room': 100,
     'ការធ្វើដំណើរ': 80,
     'Motor': 50,
-    ' Breakfast': 30,
+    'Breakfast': 30,
     'Dinner': 60
 };
 
@@ -123,27 +124,52 @@ async function loadDashboardMetricsAndCharts() {
 }
 
 /**
+ * Helper to safely extract numeric amount, lowercase type, and uppercase currency
+ */
+function parseTxnData(t) {
+    const rawAmt = t.raw_amount !== undefined ? t.raw_amount : t.amount;
+    let amt = 0;
+    if (typeof rawAmt === 'number') {
+        amt = rawAmt;
+    } else if (typeof rawAmt === 'string') {
+        // Strip non-numeric chars except dot and minus
+        const cleaned = rawAmt.replace(/[^0-9.-]/g, '');
+        amt = parseFloat(cleaned) || 0;
+    }
+
+    const typeStr = (t.raw_type || t.type || '').toString().toLowerCase();
+    const currStr = (t.raw_currency || t.currency || '').toString().toUpperCase();
+
+    return {
+        amount: amt,
+        type: typeStr,
+        currency: currStr,
+        category: (t.category || '').trim()
+    };
+}
+
+/**
  * Calculate Metrics & Unified Balance using USD/KHR Exchange Rate
  */
 function calculateMetricsAndUnifiedBalance(transactions) {
     let incUsd = 0, incKhr = 0;
     let expUsd = 0, expKhr = 0;
 
-    transactions.forEach(t => {
-        const amt = parseFloat(t.amount) || 0;
+    transactions.forEach(rawT => {
+        const t = parseTxnData(rawT);
         if (t.type === 'income') {
-            if (t.currency === 'USD') incUsd += amt;
-            else incKhr += amt;
+            if (t.currency === 'USD') incUsd += t.amount;
+            else incKhr += t.amount;
         } else if (t.type === 'expense') {
-            if (t.currency === 'USD') expUsd += amt;
-            else expKhr += amt;
+            if (t.currency === 'USD') expUsd += t.amount;
+            else expKhr += t.amount;
         }
     });
 
     const balUsd = incUsd - expUsd;
     const balKhr = incKhr - expKhr;
 
-    // Update standard DOM metric cards if present
+    // Update standard DOM metric cards
     updateMetricElement('total-balance-khr', `${balKhr.toLocaleString()} ៛`);
     updateMetricElement('total-balance-usd', `$${balUsd.toFixed(2)}`);
     updateMetricElement('total-income-khr', `${incKhr.toLocaleString()} ៛`);
@@ -173,14 +199,13 @@ function checkCategoryBudgetAlerts(transactions) {
 
     container.innerHTML = '';
 
-    // Aggregate monthly expense totals per category in USD
     const categoryTotalsUSD = {};
 
-    transactions.forEach(t => {
+    transactions.forEach(rawT => {
+        const t = parseTxnData(rawT);
         if (t.type === 'expense') {
-            const cat = t.category.trim();
-            const amt = parseFloat(t.amount) || 0;
-            const amtUsd = (t.currency === 'USD') ? amt : (amt / currentUsdKhrRate);
+            const cat = t.category;
+            const amtUsd = (t.currency === 'USD') ? t.amount : (t.amount / currentUsdKhrRate);
 
             categoryTotalsUSD[cat] = (categoryTotalsUSD[cat] || 0) + amtUsd;
         }
@@ -238,9 +263,9 @@ function renderIncomeVsExpenseChart(transactions) {
 
     let incUsd = 0, expUsd = 0;
 
-    transactions.forEach(t => {
-        const amt = parseFloat(t.amount) || 0;
-        const amtUsd = (t.currency === 'USD') ? amt : (amt / currentUsdKhrRate);
+    transactions.forEach(rawT => {
+        const t = parseTxnData(rawT);
+        const amtUsd = (t.currency === 'USD') ? t.amount : (t.amount / currentUsdKhrRate);
 
         if (t.type === 'income') incUsd += amtUsd;
         else if (t.type === 'expense') expUsd += amtUsd;
@@ -287,11 +312,11 @@ function renderCategoryDoughnutChart(transactions) {
 
     const catTotals = {};
 
-    transactions.forEach(t => {
+    transactions.forEach(rawT => {
+        const t = parseTxnData(rawT);
         if (t.type === 'expense') {
-            const cat = t.category.trim();
-            const amt = parseFloat(t.amount) || 0;
-            const amtUsd = (t.currency === 'USD') ? amt : (amt / currentUsdKhrRate);
+            const cat = t.category;
+            const amtUsd = (t.currency === 'USD') ? t.amount : (t.amount / currentUsdKhrRate);
 
             catTotals[cat] = (catTotals[cat] || 0) + amtUsd;
         }
@@ -339,7 +364,6 @@ async function loadTransactionsTable(page = 1) {
 
     let url = `${API_TRANSACTIONS_URL}?action=get_transactions&page=${page}`;
 
-    // Apply Date Range Filters if present
     const fromDate = document.getElementById('filter-from-date')?.value;
     const toDate = document.getElementById('filter-to-date')?.value;
     const searchDate = document.getElementById('search-date')?.value;
@@ -375,8 +399,9 @@ function renderTableRows(data) {
     }
 
     tbody.innerHTML = data.map(row => {
-        const typeColor = row.type === 'income' ? '#10b981' : '#ef4444';
-        const typeText = row.type === 'income' ? 'ចំណូល' : 'ចំណាយ';
+        const rawType = (row.raw_type || row.type || '').toLowerCase();
+        const typeColor = rawType === 'income' ? '#10b981' : '#ef4444';
+        const typeText = rawType === 'income' ? 'ចំណូល' : 'ចំណាយ';
         const receiptBadge = row.receipt_image ? `<a href="${row.receipt_image}" target="_blank" style="color: #2563eb; font-size: 0.85rem; text-decoration: underline;">🧾 មើលវិក្កយបត្រ</a>` : `<span style="color: #9ca3af; font-size: 0.85rem;">គ្មាន</span>`;
 
         return `
@@ -385,7 +410,7 @@ function renderTableRows(data) {
                 <td data-label="បរិយាយ"><strong>${row.description}</strong></td>
                 <td data-label="អ្នកបន្ថែម">${row.creator || 'User'}</td>
                 <td data-label="ប្រភេទ"><span style="color: ${typeColor}; font-weight: bold;">${typeText} (${row.category})</span></td>
-                <td data-label="ចំនួនទឹកប្រាក់" style="font-weight: bold; color: ${typeColor};">${row.amount} ${row.currency}</td>
+                <td data-label="ចំនួនទឹកប្រាក់" style="font-weight: bold; color: ${typeColor};">${row.amount}</td>
                 <td data-label="វិក្កយបត្រ">${receiptBadge}</td>
                 <td data-label="សកម្មភាព" style="text-align: center;">
                     <button class="btn" style="padding: 4px 10px; font-size: 0.8rem; background: #ef4444; color: white;" onclick="softDeleteTransaction(${row.id})">លុប</button>
@@ -472,4 +497,3 @@ function showToast(message, type = 'success') {
         setTimeout(() => toast.remove(), 300);
     }, 4000);
 }
-    
