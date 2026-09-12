@@ -1,9 +1,9 @@
 <?php
 /**
- * api-transactions.php - Complete Production Transaction Management API
+ * api-transactions-v9.php - Complete Production Transaction Management API v9
  * Part of the Khmer Payment Tracker and Financial Management System
  * 
- * Handles secure CRUD operations, list_all for frontend metrics/charts,
+ * Handles secure CRUD operations, optional receipt file uploads, list_all for frontend metrics/charts,
  * RBAC user scoping, soft-deletion, and audit history.
  */
 
@@ -28,11 +28,41 @@ $db = getSecureDBConnection();
 
 $method = $_SERVER['REQUEST_METHOD'];
 
+/**
+ * Helper to handle optional receipt file upload
+ */
+function handleReceiptUpload() {
+    $file = $_FILES['receipt'] ?? $_FILES['receipt_image'] ?? null;
+    if (!$file || !isset($file['tmp_name']) || empty($file['tmp_name']) || $file['error'] !== UPLOAD_ERR_OK) {
+        return null;
+    }
+
+    $uploadDir = __DIR__ . '/uploads/';
+    if (!is_dir($uploadDir)) {
+        @mkdir($uploadDir, 0755, true);
+    }
+
+    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    $allowed = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf'];
+    if (!in_array($ext, $allowed)) {
+        return null;
+    }
+
+    $filename = 'receipt_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+    $targetPath = $uploadDir . $filename;
+
+    if (move_uploaded_file($file['tmp_name'], $targetPath)) {
+        return 'uploads/' . $filename;
+    }
+
+    return null;
+}
+
 switch ($method) {
     case 'POST':
         $action = isset($_GET['action']) ? $_GET['action'] : '';
 
-        // --- Restore Soft-Deleted Transaction ---
+        // --- Action: restore ---
         if ($action === 'restore') {
             if ($current_role !== 'super_admin' && $current_role !== 'admin') {
                 http_response_code(403);
@@ -40,7 +70,7 @@ switch ($method) {
                 exit;
             }
 
-            $input = json_decode(file_get_contents("php://input"), true);
+            $input = json_decode(file_get_contents("php://input"), true) ?: $_POST;
             $transaction_id = isset($input['transaction_id']) ? intval($input['transaction_id']) : 0;
 
             if ($transaction_id <= 0) {
@@ -82,18 +112,114 @@ switch ($method) {
             exit;
         }
 
-        // --- Create New Transaction ---
+        // --- Action: update / edit ---
+        if ($action === 'update' || $action === 'edit') {
+            $input = json_decode(file_get_contents("php://input"), true) ?: $_POST;
+            $transaction_id = isset($input['transaction_id']) ? intval($input['transaction_id']) : (isset($input['id']) ? intval($input['id']) : 0);
+            
+            $description = isset($input['title']) ? trim(htmlspecialchars($input['title'])) : (isset($input['description']) ? trim(htmlspecialchars($input['description'])) : '');
+            $amount = isset($input['amount']) ? filter_var($input['amount'], FILTER_VALIDATE_FLOAT) : false;
+            $currency = isset($input['currency']) ? trim($input['currency']) : '';
+            $type = isset($input['type']) ? trim($input['type']) : '';
+            $category = isset($input['category']) ? trim(htmlspecialchars($input['category'])) : '';
+            $date = isset($input['date']) ? trim($input['date']) : '';
+
+            $new_receipt = handleReceiptUpload();
+
+            if ($transaction_id <= 0 || empty($description) || $amount === false || $amount <= 0 || empty($currency) || empty($type) || empty($category)) {
+                http_response_code(400);
+                echo json_encode(["status" => "error", "message" => "សូមបំពេញព័ត៌មានឱ្យបានត្រឹមត្រូវ និងគ្រប់គ្រាន់។"]);
+                exit;
+            }
+
+            try {
+                $getStmt = $db->prepare("SELECT * FROM `transactions` WHERE id = ?");
+                $getStmt->execute([$transaction_id]);
+                $txn = $getStmt->fetch();
+
+                if (!$txn) {
+                    http_response_code(404);
+                    echo json_encode(["status" => "error", "message" => "រកមិនឃើញប្រតិបត្តិការដែលត្រូវកែប្រែឡើយ។"]);
+                    exit;
+                }
+
+                if ($current_role !== 'super_admin' && $current_role !== 'admin' && $txn['user_id'] != $current_user_id) {
+                    http_response_code(403);
+                    echo json_encode(["status" => "error", "message" => "Forbidden: លោកអ្នកគ្មានសិទ្ធិកែប្រែប្រតិបត្តិការរបស់អ្នកដទៃឡើយ。"]);
+                    exit;
+                }
+
+                $db->beginTransaction();
+
+                // Record history
+                $histStmt = $db->prepare("
+                    INSERT INTO `transaction_history` (
+                        `transaction_id`, `user_id`, 
+                        `original_description`, `original_amount`, `original_currency`, `original_type`, `original_category`,
+                        `new_description`, `new_amount`, `new_currency`, `new_type`, `new_category`,
+                        `action_type`, `actioned_by`
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'UPDATE', ?)
+                ");
+                $histStmt->execute([
+                    $transaction_id, $txn['user_id'],
+                    $txn['description'], $txn['amount'], $txn['currency'], $txn['type'], $txn['category'],
+                    $description, $amount, $currency, $type, $category,
+                    $current_user_id
+                ]);
+
+                // Receipt path
+                $receiptPath = $new_receipt ?: $txn['receipt_image'];
+
+                $updateSql = "UPDATE `transactions` SET `description` = ?, `amount` = ?, `currency` = ?, `type` = ?, `category` = ?, `receipt_image` = ?";
+                $params = [$description, $amount, $currency, $type, $category, $receiptPath];
+
+                if (!empty($date)) {
+                    $updateSql .= ", `date` = ?";
+                    $params[] = $date;
+                }
+                $updateSql .= " WHERE `id` = ?";
+                $params[] = $transaction_id;
+
+                $updateStmt = $db->prepare($updateSql);
+                $updateStmt->execute($params);
+
+                $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+                $details = "Updated transaction ID: {$transaction_id} ({$description}).";
+                $logStmt = $db->prepare("INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, 'EDIT_TRANSACTION', ?, ?)");
+                $logStmt->execute([$current_user_id, $details, $ip]);
+
+                $db->commit();
+
+                echo json_encode([
+                    "status" => "success",
+                    "message" => "ប្រតិបត្តិការត្រូវបានកែប្រែ និងរក្សាទុកជោគជ័យ!"
+                ]);
+
+            } catch (PDOException $e) {
+                if ($db->inTransaction()) $db->rollBack();
+                error_log("Failed to update: " . $e->getMessage());
+                http_response_code(500);
+                echo json_encode(["status" => "error", "message" => "មានបញ្ហាបច្ចេកទេសក្នុងការកែប្រែទិន្នន័យ។"]);
+            }
+            exit;
+        }
+
+        // --- Default POST: Create New Transaction ---
         $input = json_decode(file_get_contents("php://input"), true) ?: $_POST;
 
-        $description = isset($input['title']) ? trim(htmlspecialchars($input['title'])) : '';
+        $description = isset($input['title']) ? trim(htmlspecialchars($input['title'])) : (isset($input['description']) ? trim(htmlspecialchars($input['description'])) : '');
         $amount = isset($input['amount']) ? filter_var($input['amount'], FILTER_VALIDATE_FLOAT) : false;
         $currency = isset($input['currency']) ? trim($input['currency']) : '';
         $type = isset($input['type']) ? trim($input['type']) : '';
         $category = isset($input['category']) ? trim(htmlspecialchars($input['category'])) : '';
-        $date = isset($input['date']) ? trim($input['date']) : '';
-        $receipt_image = isset($input['receipt_image']) ? trim($input['receipt_image']) : null;
+        $date = isset($input['date']) && !empty($input['date']) ? trim($input['date']) : date('Y-m-d H:i:s');
+        
+        $receipt_image = handleReceiptUpload();
+        if (!$receipt_image && isset($input['receipt_image'])) {
+            $receipt_image = trim($input['receipt_image']);
+        }
 
-        if (empty($description) || $amount === false || $amount <= 0 || empty($currency) || empty($type) || empty($category) || empty($date)) {
+        if (empty($description) || $amount === false || $amount <= 0 || empty($currency) || empty($type) || empty($category)) {
             http_response_code(400);
             echo json_encode(["status" => "error", "message" => "សូមបំពេញព័ត៌មានឱ្យបានត្រឹមត្រូវ និងគ្រប់គ្រាន់ (ទឹកប្រាក់ត្រូវតែធំជាង ០)។"]);
             exit;
@@ -121,14 +247,14 @@ switch ($method) {
         } catch (PDOException $e) {
             error_log("Database insertion failed: " . $e->getMessage());
             http_response_code(500);
-            echo json_encode(["status" => "error", "message" => "បរាជ័យក្នុងការរក្សាទុកទិន្នន័យ។"]);
+            echo json_encode(["status" => "error", "message" => "បរាជ័យក្នុងការរក្សាទុកទិន្នន័យទៅកាន់ Database។"]);
         }
         break;
 
     case 'GET':
         $action = isset($_GET['action']) ? $_GET['action'] : '';
 
-        // --- Action: list_all (For Dashboard Metrics, Unified Totals, Budget Alerts & Charts) ---
+        // --- Action: list_all ---
         if ($action === 'list_all') {
             $whereClause = " WHERE t.is_deleted = 0";
             $queryParams = [];
@@ -183,51 +309,7 @@ switch ($method) {
             exit;
         }
 
-        // --- Action: metrics ---
-        if ($action === 'metrics') {
-            $whereClause = " WHERE is_deleted = 0";
-            $queryParams = [];
-
-            if ($current_role !== 'super_admin' && $current_role !== 'admin') {
-                $whereClause .= " AND user_id = :user_id";
-                $queryParams[':user_id'] = $current_user_id;
-            }
-
-            try {
-                $totals = ['income_khr' => 0, 'income_usd' => 0, 'expense_khr' => 0, 'expense_usd' => 0];
-
-                $stmt = $db->prepare("SELECT type, currency, SUM(amount) as total_amount FROM transactions {$whereClause} GROUP BY type, currency");
-                $stmt->execute($queryParams);
-                $rows = $stmt->fetchAll();
-
-                foreach ($rows as $row) {
-                    $key = strtolower($row['type']) . '_' . strtolower($row['currency']);
-                    if (isset($totals[$key])) {
-                        $totals[$key] = (float)$row['total_amount'];
-                    }
-                }
-
-                $balance_khr = $totals['income_khr'] - $totals['expense_khr'];
-                $balance_usd = $totals['income_usd'] - $totals['expense_usd'];
-
-                echo json_encode([
-                    "status" => "success",
-                    "data" => [
-                        "income" => ["KHR" => number_format($totals['income_khr']) . ' ៛', "USD" => '$' . number_format($totals['income_usd'], 2)],
-                        "expense" => ["KHR" => number_format($totals['expense_khr']) . ' ៛', "USD" => '$' . number_format($totals['expense_usd'], 2)],
-                        "balance" => ["KHR" => number_format($balance_khr) . ' ៛', "USD" => '$' . number_format($balance_usd, 2), "raw_khr" => $balance_khr, "raw_usd" => $balance_usd]
-                    ]
-                ]);
-
-            } catch (PDOException $e) {
-                error_log("Metrics calculation failed: " . $e->getMessage());
-                http_response_code(500);
-                echo json_encode(["status" => "error", "message" => "មានបញ្ហាបច្ចេកទេសក្នុងការគណនាសមតុល្យ។"]);
-            }
-            exit;
-        }
-
-        // --- Action: get_transactions (Standard Paginated List for Table) ---
+        // --- Default GET: Paginated list ---
         $limit = isset($_GET['limit']) ? max(1, intval($_GET['limit'])) : 10;
         $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
         $offset = ($page - 1) * $limit;
@@ -255,8 +337,8 @@ switch ($method) {
 
         try {
             $countStmt = $db->prepare("SELECT COUNT(*) FROM transactions t {$whereClause}");
-            foreach ($queryParams as $key => $val) {
-                $countStmt->bindValue($key, $val, is_int($val) ? PDO::PARAM_INT : PDO::PARAM_STR);
+            foreach ($queryParams as $k => $v) {
+                $countStmt->bindValue($k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
             }
             $countStmt->execute();
             $total_records = (int)$countStmt->fetchColumn();
@@ -271,8 +353,8 @@ switch ($method) {
                 LIMIT :limit OFFSET :offset
             ";
             $stmt = $db->prepare($queryStr);
-            foreach ($queryParams as $key => $val) {
-                $stmt->bindValue($key, $val, is_int($val) ? PDO::PARAM_INT : PDO::PARAM_STR);
+            foreach ($queryParams as $k => $v) {
+                $stmt->bindValue($k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
             }
             $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
             $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
@@ -281,19 +363,16 @@ switch ($method) {
 
             $formatted = [];
             foreach ($transactions as $row) {
-                $amount_display = ($row['currency'] === 'KHR') ? number_format($row['amount']) . ' ៛' : '$' . number_format($row['amount'], 2);
-
                 $formatted[] = [
                     "id" => $row['id'],
-                    "user_id" => $row['user_id'],
                     "date" => date('y-m-d H:i', strtotime($row['date'])),
+                    "raw_date" => date('Y-m-d\TH:i', strtotime($row['date'])),
                     "description" => $row['description'],
                     "creator" => ($row['user_id'] == $current_user_id) ? '-' : $row['creator_name'],
                     "type" => ($row['type'] === 'income') ? 'Income' : 'Expense',
                     "raw_type" => strtolower($row['type']),
-                    "amount" => $amount_display,
+                    "amount" => ($row['currency'] === 'KHR') ? number_format($row['amount']) . ' ៛' : '$' . number_format($row['amount'], 2),
                     "raw_amount" => (float)$row['amount'],
-                    "currency" => strtoupper($row['currency']),
                     "raw_currency" => strtoupper($row['currency']),
                     "category" => $row['category'],
                     "receipt_image" => $row['receipt_image'] ?? null
@@ -315,6 +394,87 @@ switch ($method) {
             error_log("Query failed: " . $e->getMessage());
             http_response_code(500);
             echo json_encode(["status" => "error", "message" => "មានបញ្ហាបច្ចេកទេសក្នុងការទាញយកទិន្នន័យ។"]);
+        }
+        break;
+
+    case 'PUT':
+        $input = json_decode(file_get_contents("php://input"), true);
+        $transaction_id = isset($input['transaction_id']) ? intval($input['transaction_id']) : (isset($input['id']) ? intval($input['id']) : 0);
+        
+        $description = isset($input['title']) ? trim(htmlspecialchars($input['title'])) : (isset($input['description']) ? trim(htmlspecialchars($input['description'])) : '');
+        $amount = isset($input['amount']) ? filter_var($input['amount'], FILTER_VALIDATE_FLOAT) : false;
+        $currency = isset($input['currency']) ? trim($input['currency']) : '';
+        $type = isset($input['type']) ? trim($input['type']) : '';
+        $category = isset($input['category']) ? trim(htmlspecialchars($input['category'])) : '';
+        $date = isset($input['date']) ? trim($input['date']) : '';
+
+        if ($transaction_id <= 0 || empty($description) || $amount === false || $amount <= 0 || empty($currency) || empty($type) || empty($category)) {
+            http_response_code(400);
+            echo json_encode(["status" => "error", "message" => "សូមបំពេញព័ត៌មានឱ្យបានត្រឹមត្រូវ និងគ្រប់គ្រាន់。"]);
+            exit;
+        }
+
+        try {
+            $getStmt = $db->prepare("SELECT * FROM `transactions` WHERE id = ?");
+            $getStmt->execute([$transaction_id]);
+            $txn = $getStmt->fetch();
+
+            if (!$txn) {
+                http_response_code(404);
+                echo json_encode(["status" => "error", "message" => "រកមិនឃើញប្រតិបត្តិការដែលត្រូវកែប្រែឡើយ។"]);
+                exit;
+            }
+
+            if ($current_role !== 'super_admin' && $current_role !== 'admin' && $txn['user_id'] != $current_user_id) {
+                http_response_code(403);
+                echo json_encode(["status" => "error", "message" => "Forbidden: លោកអ្នកគ្មានសិទ្ធិកែប្រែប្រតិបត្តិការរបស់អ្នកដទៃឡើយ。"]);
+                exit;
+            }
+
+            $db->beginTransaction();
+
+            $histStmt = $db->prepare("
+                INSERT INTO `transaction_history` (
+                    `transaction_id`, `user_id`, 
+                    `original_description`, `original_amount`, `original_currency`, `original_type`, `original_category`,
+                    `new_description`, `new_amount`, `new_currency`, `new_type`, `new_category`,
+                    `action_type`, `actioned_by`
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'UPDATE', ?)
+            ");
+            $histStmt->execute([
+                $transaction_id, $txn['user_id'],
+                $txn['description'], $txn['amount'], $txn['currency'], $txn['type'], $txn['category'],
+                $description, $amount, $currency, $type, $category,
+                $current_user_id
+            ]);
+
+            $updateSql = "UPDATE `transactions` SET `description` = ?, `amount` = ?, `currency` = ?, `type` = ?, `category` = ?";
+            $params = [$description, $amount, $currency, $type, $category];
+
+            if (!empty($date)) {
+                $updateSql .= ", `date` = ?";
+                $params[] = $date;
+            }
+            $updateSql .= " WHERE `id` = ?";
+            $params[] = $transaction_id;
+
+            $updateStmt = $db->prepare($updateSql);
+            $updateStmt->execute($params);
+
+            $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+            $details = "Updated transaction ID: {$transaction_id}.";
+            $logStmt = $db->prepare("INSERT INTO audit_logs (user_id, action, details, ip_address) VALUES (?, 'EDIT_TRANSACTION', ?, ?)");
+            $logStmt->execute([$current_user_id, $details, $ip]);
+
+            $db->commit();
+
+            echo json_encode(["status" => "success", "message" => "ប្រតិបត្តិការត្រូវបានកែប្រែ និងរក្សាទុកជោគជ័យ!"]);
+
+        } catch (PDOException $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            error_log("Failed to update: " . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(["status" => "error", "message" => "មានបញ្ហាបច្ចេកទេសក្នុងការកែប្រែទិន្នន័យ。"]);
         }
         break;
 
@@ -353,7 +513,7 @@ switch ($method) {
         } catch (PDOException $e) {
             error_log("Delete failed: " . $e->getMessage());
             http_response_code(500);
-            echo json_encode(["status" => "error", "message" => "មានបញ្ហាបច្ចេកទេសក្នុងការលុបទិន្នន័យ។"]);
+            echo json_encode(["status" => "error", "message" => "មានបញ្ហាបច្ចេកទេសក្នុងការលុបទិន្នន័យ。"]);
         }
         break;
 
