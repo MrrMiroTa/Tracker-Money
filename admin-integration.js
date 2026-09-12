@@ -1,17 +1,15 @@
 /**
- * admin-integration-v15.js - Frontend JavaScript Engine v15
+ * admin-integration.js - Production JavaScript Engine (v16)
  * Part of the Khmer Payment Tracker and Financial Management System
  * 
  * Features:
- * - Form submit handler for creating new transactions (with optional receipt file upload)
- * - Two Activity Action buttons (✏️ កែប្រែ / Update & 🗑️ លុប / Delete)
- * - Modal form handler for updating existing transactions
  * - Real-time Chart.js Analytics (Income vs Expense Bar Chart, Category Doughnut Chart)
  * - Exchange Rate Converter ($1 USD = X KHR) & Unified Total Balance Calculation
  * - Category Budget Tracking & Threshold Warnings (>80% and Exceeded)
  * - Advanced Date Range Filtering (From Date - To Date)
  * - Audit Log Viewer for Admins
- * - Responsive Navbar Burger Toggle
+ * - Optional Receipt File Upload Handling
+ * - Dual Activity Options: ✏️ កែប្រែ (Update) & 🗑️ លុប (Delete)
  */
 
 const API_BASE_URL = 'api-v2.php';
@@ -109,6 +107,14 @@ function setupTransactionForm() {
     const form = document.getElementById('transaction-form');
     if (!form) return;
 
+    // Set default date input value if empty
+    const dateInput = document.getElementById('date');
+    if (dateInput && !dateInput.value) {
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        dateInput.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    }
+
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
 
@@ -117,7 +123,6 @@ function setupTransactionForm() {
         const currencyInput = document.getElementById('currency');
         const typeInput = document.getElementById('type');
         const categoryInput = document.getElementById('category');
-        const dateInput = document.getElementById('date');
         const receiptInput = document.getElementById('receipt');
 
         const title = titleInput.value.trim();
@@ -125,7 +130,7 @@ function setupTransactionForm() {
         const currency = currencyInput.value;
         const type = typeInput.value;
         const category = categoryInput.value.trim();
-        const date = dateInput.value;
+        const date = dateInput ? dateInput.value : '';
 
         if (!title || isNaN(amount) || amount <= 0 || !currency || !type || !category) {
             showToast('សូមបំពេញព័ត៌មានឱ្យបានត្រឹមត្រូវ និងគ្រប់គ្រាន់ (ទឹកប្រាក់ត្រូវតែធំជាង ០)!', 'error');
@@ -164,7 +169,7 @@ function setupTransactionForm() {
                 form.reset();
                 if (receiptInput) receiptInput.value = '';
 
-                // Set default date to current local datetime
+                // Reset date to current time
                 if (dateInput) {
                     const now = new Date();
                     const pad = (n) => String(n).padStart(2, '0');
@@ -253,91 +258,22 @@ function setupEditTransactionForm() {
  */
 function openEditTransactionModal(id, title, amount, currency, type, category, date) {
     let modal = document.getElementById('edit-transaction-modal');
-    if (!modal) {
-        modal = createEditModalElement();
-    }
+    if (modal) {
+        document.getElementById('edit-tx-id').value = id;
+        document.getElementById('edit-tx-title').value = title;
+        document.getElementById('edit-tx-amount').value = amount;
+        document.getElementById('edit-tx-currency').value = currency;
+        document.getElementById('edit-tx-type').value = type;
+        document.getElementById('edit-tx-category').value = category;
+        document.getElementById('edit-tx-date').value = date;
 
-    document.getElementById('edit-tx-id').value = id;
-    document.getElementById('edit-tx-title').value = decodeURIComponent(title);
-    document.getElementById('edit-tx-amount').value = amount;
-    document.getElementById('edit-tx-currency').value = currency;
-    document.getElementById('edit-tx-type').value = type;
-    document.getElementById('edit-tx-category').value = decodeURIComponent(category);
-    
-    if (date) {
-        const d = new Date(date);
-        if (!isNaN(d.getTime())) {
-            const pad = (n) => String(n).padStart(2, '0');
-            const localIso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-            document.getElementById('edit-tx-date').value = localIso;
-        } else {
-            document.getElementById('edit-tx-date').value = date;
-        }
+        modal.classList.add('active');
     }
-
-    modal.classList.add('active');
 }
 
 function closeEditTransactionModal() {
     const modal = document.getElementById('edit-transaction-modal');
     if (modal) modal.classList.remove('active');
-}
-
-function createEditModalElement() {
-    const modal = document.createElement('div');
-    modal.id = 'edit-transaction-modal';
-    modal.className = 'modal-backdrop';
-    modal.innerHTML = `
-        <div class="modal-content-card" style="max-width: 500px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.75rem; margin-bottom: 1rem;">
-                <h3 style="margin: 0; color: #1e3a8a;">✏️ កែប្រែប្រតិបត្តិការហិរញ្ញវត្ថុ (Update)</h3>
-                <button class="btn btn-secondary" style="padding: 4px 10px;" onclick="closeEditTransactionModal()">&times; បោះបង់</button>
-            </div>
-            <form id="edit-transaction-form">
-                <input type="hidden" id="edit-tx-id">
-                <div class="form-group">
-                    <label>បរិយាយ / ឈ្មោះប្រតិបត្តិការ</label>
-                    <input type="text" id="edit-tx-title" required>
-                </div>
-                <div class="form-group">
-                    <label>ចំនួនទឹកប្រាក់</label>
-                    <div class="amount-input-group">
-                        <input type="number" id="edit-tx-amount" step="any" required>
-                        <select id="edit-tx-currency" required>
-                            <option value="KHR">រៀល (៛)</option>
-                            <option value="USD">ដុល្លារ ($)</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>ប្រភេទប្រតិបត្តិការ</label>
-                    <select id="edit-tx-type" required>
-                        <option value="income">ចំណូល (Income)</option>
-                        <option value="expense">ចំណាយ (Expense)</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>ប្រភេទក្រុម (Category)</label>
-                    <input type="text" id="edit-tx-category" required>
-                </div>
-                <div class="form-group">
-                    <label>កាលបរិច្ឆេទ</label>
-                    <input type="datetime-local" id="edit-tx-date" required>
-                </div>
-                <div class="form-group">
-                    <label>រូបភាពវិក្កយបត្រ / ស្លីប (Receipt - មិនបង្ខំ/Optional)</label>
-                    <input type="file" id="edit-tx-receipt" accept="image/*,.pdf">
-                </div>
-                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 1rem;">
-                    <button type="button" class="btn btn-secondary" onclick="closeEditTransactionModal()">បោះបង់</button>
-                    <button type="submit" class="btn btn-primary" style="background: #2563eb;">💾 ធ្វើបច្ចុប្បន្នភាព (Save Changes)</button>
-                </div>
-            </form>
-        </div>
-    `;
-    document.body.appendChild(modal);
-    setupEditTransactionForm();
-    return modal;
 }
 
 /**
@@ -373,9 +309,9 @@ function calculateMetricsAndUnifiedBalance(transactions) {
     let expUsd = 0, expKhr = 0;
 
     transactions.forEach(t => {
-        const amt = parseFloat(t.raw_amount ?? t.amount) || 0;
-        const curr = (t.raw_currency || t.currency || '').toUpperCase();
+        const amt = parseFloat(t.raw_amount || t.amount) || 0;
         const type = (t.raw_type || t.type || '').toLowerCase();
+        const curr = (t.raw_currency || t.currency || '').toUpperCase();
 
         if (type === 'income') {
             if (curr === 'USD') incUsd += amt;
@@ -389,13 +325,14 @@ function calculateMetricsAndUnifiedBalance(transactions) {
     const balUsd = incUsd - expUsd;
     const balKhr = incKhr - expKhr;
 
-    updateMetricElement('total-balance-khr', `${balKhr.toLocaleString()} ៛`);
+    updateMetricElement('total-balance-khr', `${Math.round(balKhr).toLocaleString()} ៛`);
     updateMetricElement('total-balance-usd', `$${balUsd.toFixed(2)}`);
-    updateMetricElement('total-income-khr', `${incKhr.toLocaleString()} ៛`);
+    updateMetricElement('total-income-khr', `${Math.round(incKhr).toLocaleString()} ៛`);
     updateMetricElement('total-income-usd', `$${incUsd.toFixed(2)}`);
-    updateMetricElement('total-expense-khr', `${expKhr.toLocaleString()} ៛`);
+    updateMetricElement('total-expense-khr', `${Math.round(expKhr).toLocaleString()} ៛`);
     updateMetricElement('total-expense-usd', `$${expUsd.toFixed(2)}`);
 
+    // Unified Total Calculations
     const unifiedNetUsd = balUsd + (balKhr / currentUsdKhrRate);
     const unifiedNetKhr = balKhr + (balUsd * currentUsdKhrRate);
 
@@ -423,7 +360,7 @@ function checkCategoryBudgetAlerts(transactions) {
         const type = (t.raw_type || t.type || '').toLowerCase();
         if (type === 'expense') {
             const cat = (t.category || '').trim();
-            const amt = parseFloat(t.raw_amount ?? t.amount) || 0;
+            const amt = parseFloat(t.raw_amount || t.amount) || 0;
             const curr = (t.raw_currency || t.currency || '').toUpperCase();
             const amtUsd = (curr === 'USD') ? amt : (amt / currentUsdKhrRate);
 
@@ -481,9 +418,9 @@ function renderIncomeVsExpenseChart(transactions) {
     let incUsd = 0, expUsd = 0;
 
     transactions.forEach(t => {
-        const amt = parseFloat(t.raw_amount ?? t.amount) || 0;
-        const curr = (t.raw_currency || t.currency || '').toUpperCase();
+        const amt = parseFloat(t.raw_amount || t.amount) || 0;
         const type = (t.raw_type || t.type || '').toLowerCase();
+        const curr = (t.raw_currency || t.currency || '').toUpperCase();
         const amtUsd = (curr === 'USD') ? amt : (amt / currentUsdKhrRate);
 
         if (type === 'income') incUsd += amtUsd;
@@ -507,15 +444,11 @@ function renderIncomeVsExpenseChart(transactions) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }
-            },
+            plugins: { legend: { display: false } },
             scales: {
                 y: {
                     beginAtZero: true,
-                    ticks: {
-                        callback: function(value) { return '$' + value; }
-                    }
+                    ticks: { callback: function(v) { return '$' + v; } }
                 }
             }
         }
@@ -532,7 +465,7 @@ function renderCategoryDoughnutChart(transactions) {
         const type = (t.raw_type || t.type || '').toLowerCase();
         if (type === 'expense') {
             const cat = (t.category || '').trim();
-            const amt = parseFloat(t.raw_amount ?? t.amount) || 0;
+            const amt = parseFloat(t.raw_amount || t.amount) || 0;
             const curr = (t.raw_currency || t.currency || '').toUpperCase();
             const amtUsd = (curr === 'USD') ? amt : (amt / currentUsdKhrRate);
 
@@ -542,11 +475,7 @@ function renderCategoryDoughnutChart(transactions) {
 
     const labels = Object.keys(catTotals);
     const dataValues = Object.values(catTotals).map(v => v.toFixed(2));
-
-    const colors = [
-        '#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#8b5cf6', 
-        '#ec4899', '#06b6d4', '#84cc16', '#64748b'
-    ];
+    const colors = ['#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#64748b'];
 
     if (categoryDoughnutChart) categoryDoughnutChart.destroy();
 
@@ -555,19 +484,13 @@ function renderCategoryDoughnutChart(transactions) {
         type: 'doughnut',
         data: {
             labels: labels,
-            datasets: [{
-                data: dataValues,
-                backgroundColor: colors.slice(0, labels.length)
-            }]
+            datasets: [{ data: dataValues, backgroundColor: colors.slice(0, labels.length) }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: { font: { family: "'Kantumruy Pro', sans-serif" } }
-                }
+                legend: { position: 'bottom', labels: { font: { family: "'Kantumruy Pro', sans-serif" } } }
             }
         }
     });
@@ -607,9 +530,6 @@ async function loadTransactionsTable(page = 1) {
     }
 }
 
-/**
- * Render Table Rows with 2 Activity Options (Update & Delete)
- */
 function renderTableRows(data) {
     const tbody = document.getElementById('transaction-table-body');
     if (!tbody) return;
@@ -620,15 +540,15 @@ function renderTableRows(data) {
     }
 
     tbody.innerHTML = data.map(row => {
-        const rawType = (row.raw_type || (row.type === 'Income' ? 'income' : 'expense')).toLowerCase();
-        const typeColor = rawType === 'income' ? '#10b981' : '#ef4444';
-        const typeText = rawType === 'income' ? 'ចំណូល' : 'ចំណាយ';
-        const receiptBadge = row.receipt_image ? `<a href="${row.receipt_image}" target="_blank" style="color: #2563eb; font-size: 0.85rem; font-weight: bold; text-decoration: underline;">🧾 មើលវិក្កយបត្រ</a>` : `<span style="color: #9ca3af; font-size: 0.85rem;">គ្មាន</span>`;
+        const typeStr = (row.raw_type || row.type || '').toLowerCase();
+        const typeColor = typeStr === 'income' ? '#10b981' : '#ef4444';
+        const typeText = typeStr === 'income' ? 'ចំណូល' : 'ចំណាយ';
+        const receiptBadge = row.receipt_image ? `<a href="${row.receipt_image}" target="_blank" style="color: #2563eb; font-size: 0.85rem; text-decoration: underline;">🧾 មើលវិក្កយបត្រ</a>` : `<span style="color: #9ca3af; font-size: 0.85rem;">គ្មាន</span>`;
 
-        const escapedTitle = encodeURIComponent(row.description);
-        const escapedCategory = encodeURIComponent(row.category);
+        const escapedTitle = encodeURIComponent(row.description || '');
+        const escapedCategory = encodeURIComponent(row.category || '');
         const rawAmt = row.raw_amount || parseFloat(row.amount) || 0;
-        const rawCurr = row.raw_currency || (row.amount.includes('$') ? 'USD' : 'KHR');
+        const rawCurr = row.raw_currency || 'USD';
         const rawDate = row.raw_date || row.date;
 
         return `
@@ -641,7 +561,7 @@ function renderTableRows(data) {
                 <td data-label="វិក្កយបត្រ">${receiptBadge}</td>
                 <td data-label="សកម្មភាព" style="text-align: center;">
                     <div style="display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;">
-                        <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem; background: #2563eb; color: white; border: none; border-radius: 4px; cursor: pointer;" onclick="openEditTransactionModal(${row.id}, '${escapedTitle}', ${rawAmt}, '${rawCurr}', '${rawType}', '${escapedCategory}', '${rawDate}')">✏️ កែប្រែ</button>
+                        <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem; background: #2563eb; color: white; border: none; border-radius: 4px; cursor: pointer;" onclick="openEditTransactionModal(${row.id}, '${escapedTitle}', ${rawAmt}, '${rawCurr}', '${typeStr}', '${escapedCategory}', '${rawDate}')">✏️ កែប្រែ</button>
                         <button class="btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer;" onclick="softDeleteTransaction(${row.id})">🗑️ លុប</button>
                     </div>
                 </td>
@@ -666,7 +586,7 @@ function renderPaginationControls(pagination) {
 }
 
 /**
- * Soft Delete Transaction Function
+ * Soft Delete Transaction
  */
 async function softDeleteTransaction(id) {
     if (!confirm('តើអ្នកពិតជាចង់លុបប្រតិបត្តិការនេះមែនទេ?')) return;
@@ -679,7 +599,6 @@ async function softDeleteTransaction(id) {
         });
 
         const result = await response.json();
-
         if (result.status === 'success') {
             showToast(result.message || '🗑️ ប្រតិបត្តិការត្រូវបានលុបជោគជ័យ!', 'success');
             loadTransactionsTable(1);
@@ -688,8 +607,8 @@ async function softDeleteTransaction(id) {
             showToast(result.message || 'បរាជ័យក្នុងការលុប!', 'error');
         }
     } catch (err) {
-        console.error('Error deleting transaction:', err);
-        showToast('មានបញ្ហាបច្ចេកទេសក្នុងការលុបទិន្នន័យ!', 'error');
+        console.error('Delete error:', err);
+        showToast('មានបញ្ហាបច្ចេកទេសក្នុងការលុប!', 'error');
     }
 }
 
