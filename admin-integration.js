@@ -1,1151 +1,475 @@
 /**
- * admin-integration-v5.js - Frontend API Integration with Audit Archive & Edit Capability
+ * admin-integration-v13.js - Frontend JavaScript Engine
  * Part of the Khmer Payment Tracker and Financial Management System
  * 
- * Includes paginated transactions table, date filters, secure editing, soft deletion,
- * real-time dashboard widgets, and dedicated audit history loading for admins.
+ * Features:
+ * - Real-time Chart.js Analytics (Income vs Expense Bar Chart, Category Doughnut Chart)
+ * - Exchange Rate Converter ($1 USD = X KHR) & Unified Total Balance Calculation
+ * - Category Budget Tracking & Threshold Warnings (>80% and Exceeded)
+ * - Advanced Date Range Filtering (From Date - To Date)
+ * - Audit Log Viewer for Admins
+ * - Responsive Navbar Burger Toggle
  */
 
 const API_BASE_URL = 'api-v2.php';
 const API_TRANSACTIONS_URL = 'api-transactions.php';
-// --- CUSTOM UI COMPONENTS (TOAST, CONFIRM MODAL, ACTION CHOICE MODAL) ---
+
+// Global Chart Instances
+let incomeExpenseChart = null;
+let categoryDoughnutChart = null;
+
+// Global Exchange Rate State (Default 1 USD = 4,100 KHR)
+let currentUsdKhrRate = parseFloat(localStorage.getItem('usd_khr_rate')) || 4100;
+
+// Default Category Budgets (in USD)
+const categoryBudgets = {
+    'ម្ហូបអាហារ': 150,
+    'Food': 100,
+    'Room': 100,
+    'ការធ្វើដំណើរ': 80,
+    'Motor': 50,
+    ' Breakfast': 30,
+    'Dinner': 60
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    initApp();
+});
 
 /**
- * Show a beautifully designed custom toast notification (replacing browser alert)
+ * Initialize Application Engine
+ */
+function initApp() {
+    setupNavigation();
+    setupExchangeRateWidget();
+    setupDateFilterListeners();
+    loadDashboardMetricsAndCharts();
+    loadTransactionsTable(1);
+}
+
+/**
+ * Setup Responsive Navbar Burger Menu Toggle
+ */
+function setupNavigation() {
+    const toggleBtn = document.getElementById('navbar-toggle-btn');
+    const menu = document.getElementById('navbar-menu');
+    
+    if (toggleBtn && menu) {
+        toggleBtn.addEventListener('click', () => {
+            toggleBtn.classList.toggle('active');
+            menu.classList.toggle('active');
+        });
+    }
+}
+
+/**
+ * Setup Exchange Rate Converter Widget
+ */
+function setupExchangeRateWidget() {
+    const rateInput = document.getElementById('exchange-rate-input');
+    if (rateInput) {
+        rateInput.value = currentUsdKhrRate;
+        rateInput.addEventListener('change', (e) => {
+            const val = parseFloat(e.target.value);
+            if (val && val > 0) {
+                currentUsdKhrRate = val;
+                localStorage.setItem('usd_khr_rate', val);
+                showToast(`អត្រាប្តូរប្រាក់ត្រូវបានប្តូរទៅ៖ $1 = ${val.toLocaleString()} ៛`, 'info');
+                loadDashboardMetricsAndCharts();
+            }
+        });
+    }
+}
+
+/**
+ * Setup Date Filter Change Listeners
+ */
+function setupDateFilterListeners() {
+    const fromDateInput = document.getElementById('filter-from-date');
+    const toDateInput = document.getElementById('filter-to-date');
+    const searchDateInput = document.getElementById('search-date');
+
+    if (fromDateInput && toDateInput) {
+        fromDateInput.addEventListener('change', () => loadTransactionsTable(1));
+        toDateInput.addEventListener('change', () => loadTransactionsTable(1));
+    } else if (searchDateInput) {
+        searchDateInput.addEventListener('change', () => loadTransactionsTable(1));
+    }
+}
+
+/**
+ * Load Dashboard Metrics, Unified Totals, Budget Alerts & Charts
+ */
+async function loadDashboardMetricsAndCharts() {
+    try {
+        const response = await fetch(`${API_TRANSACTIONS_URL}?action=list_all`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (!response.ok) return;
+
+        const result = await response.json();
+        if (result.status === 'success' && Array.isArray(result.data)) {
+            const transactions = result.data.filter(t => !t.is_deleted);
+            
+            calculateMetricsAndUnifiedBalance(transactions);
+            checkCategoryBudgetAlerts(transactions);
+            renderAnalyticsCharts(transactions);
+        }
+    } catch (err) {
+        console.error("Failed to load dashboard metrics and charts:", err);
+    }
+}
+
+/**
+ * Calculate Metrics & Unified Balance using USD/KHR Exchange Rate
+ */
+function calculateMetricsAndUnifiedBalance(transactions) {
+    let incUsd = 0, incKhr = 0;
+    let expUsd = 0, expKhr = 0;
+
+    transactions.forEach(t => {
+        const amt = parseFloat(t.amount) || 0;
+        if (t.type === 'income') {
+            if (t.currency === 'USD') incUsd += amt;
+            else incKhr += amt;
+        } else if (t.type === 'expense') {
+            if (t.currency === 'USD') expUsd += amt;
+            else expKhr += amt;
+        }
+    });
+
+    const balUsd = incUsd - expUsd;
+    const balKhr = incKhr - expKhr;
+
+    // Update standard DOM metric cards if present
+    updateMetricElement('total-balance-khr', `${balKhr.toLocaleString()} ៛`);
+    updateMetricElement('total-balance-usd', `$${balUsd.toFixed(2)}`);
+    updateMetricElement('total-income-khr', `${incKhr.toLocaleString()} ៛`);
+    updateMetricElement('total-income-usd', `$${incUsd.toFixed(2)}`);
+    updateMetricElement('total-expense-khr', `${expKhr.toLocaleString()} ៛`);
+    updateMetricElement('total-expense-usd', `$${expUsd.toFixed(2)}`);
+
+    // Unified Total Calculations
+    const unifiedNetUsd = balUsd + (balKhr / currentUsdKhrRate);
+    const unifiedNetKhr = balKhr + (balUsd * currentUsdKhrRate);
+
+    updateMetricElement('unified-total-usd', `$${unifiedNetUsd.toFixed(2)}`);
+    updateMetricElement('unified-total-khr', `${Math.round(unifiedNetKhr).toLocaleString()} ៛`);
+}
+
+function updateMetricElement(id, text) {
+    const el = document.getElementById(id);
+    if (el) el.innerText = text;
+}
+
+/**
+ * Check Category Budgets and render warning banners if >80% or exceeded
+ */
+function checkCategoryBudgetAlerts(transactions) {
+    const container = document.getElementById('budget-alerts-container');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    // Aggregate monthly expense totals per category in USD
+    const categoryTotalsUSD = {};
+
+    transactions.forEach(t => {
+        if (t.type === 'expense') {
+            const cat = t.category.trim();
+            const amt = parseFloat(t.amount) || 0;
+            const amtUsd = (t.currency === 'USD') ? amt : (amt / currentUsdKhrRate);
+
+            categoryTotalsUSD[cat] = (categoryTotalsUSD[cat] || 0) + amtUsd;
+        }
+    });
+
+    let hasAlerts = false;
+
+    for (const [cat, limit] of Object.entries(categoryBudgets)) {
+        const spent = categoryTotalsUSD[cat] || 0;
+        const percentage = (spent / limit) * 100;
+
+        if (percentage >= 80) {
+            hasAlerts = true;
+            const isExceeded = percentage >= 100;
+            const alertCard = document.createElement('div');
+            alertCard.className = `budget-alert-card ${isExceeded ? 'exceeded' : ''}`;
+
+            alertCard.innerHTML = `
+                <div style="flex: 1;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>${isExceeded ? '🚨 លើសកម្រិតថវិកា' : '⚠️ ជិតដល់កម្រិតថវិកា'} (${cat}): <strong>$${spent.toFixed(2)}</strong> / $${limit.toFixed(2)}</span>
+                        <span><strong>${percentage.toFixed(0)}%</strong></span>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill ${isExceeded ? 'exceeded' : ''}" style="width: ${Math.min(percentage, 100)}%;"></div>
+                    </div>
+                </div>
+            `;
+
+            container.appendChild(alertCard);
+        }
+    }
+
+    if (!hasAlerts) {
+        container.innerHTML = `<div style="font-size: 0.88rem; color: #10b981; font-weight: 600; padding: 4px 0;">✅ ការចំណាយតាមក្រុមទាំងអស់ស្ថិតក្នុងកម្រិតថវិកាស្របតាមផែនការ។</div>`;
+    }
+}
+
+/**
+ * Render Analytics Charts (Chart.js)
+ */
+function renderAnalyticsCharts(transactions) {
+    if (typeof Chart === 'undefined') return;
+
+    renderIncomeVsExpenseChart(transactions);
+    renderCategoryDoughnutChart(transactions);
+}
+
+/**
+ * Render Bar Chart comparing Income vs Expense
+ */
+function renderIncomeVsExpenseChart(transactions) {
+    const canvas = document.getElementById('chart-income-expense');
+    if (!canvas) return;
+
+    let incUsd = 0, expUsd = 0;
+
+    transactions.forEach(t => {
+        const amt = parseFloat(t.amount) || 0;
+        const amtUsd = (t.currency === 'USD') ? amt : (amt / currentUsdKhrRate);
+
+        if (t.type === 'income') incUsd += amtUsd;
+        else if (t.type === 'expense') expUsd += amtUsd;
+    });
+
+    if (incomeExpenseChart) incomeExpenseChart.destroy();
+
+    const ctx = canvas.getContext('2d');
+    incomeExpenseChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['ចំណូល (Income)', 'ចំណាយ (Expense)'],
+            datasets: [{
+                label: 'ប្រាក់ដុល្លារ ($ USD)',
+                data: [incUsd.toFixed(2), expUsd.toFixed(2)],
+                backgroundColor: ['#10b981', '#ef4444'],
+                borderRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) { return '$' + value; }
+                    }
+                }
+            }
+        }
+    });
+}
+
+/**
+ * Render Doughnut Chart showing Expenses by Category
+ */
+function renderCategoryDoughnutChart(transactions) {
+    const canvas = document.getElementById('chart-category-doughnut');
+    if (!canvas) return;
+
+    const catTotals = {};
+
+    transactions.forEach(t => {
+        if (t.type === 'expense') {
+            const cat = t.category.trim();
+            const amt = parseFloat(t.amount) || 0;
+            const amtUsd = (t.currency === 'USD') ? amt : (amt / currentUsdKhrRate);
+
+            catTotals[cat] = (catTotals[cat] || 0) + amtUsd;
+        }
+    });
+
+    const labels = Object.keys(catTotals);
+    const dataValues = Object.values(catTotals).map(v => v.toFixed(2));
+
+    const colors = [
+        '#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#8b5cf6', 
+        '#ec4899', '#06b6d4', '#84cc16', '#64748b'
+    ];
+
+    if (categoryDoughnutChart) categoryDoughnutChart.destroy();
+
+    const ctx = canvas.getContext('2d');
+    categoryDoughnutChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: dataValues,
+                backgroundColor: colors.slice(0, labels.length)
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { font: { family: "'Kantumruy Pro', sans-serif" } }
+                }
+            }
+        }
+    });
+}
+
+/**
+ * Load Transactions Table with Date Range Filter & Pagination
+ */
+async function loadTransactionsTable(page = 1) {
+    const tbody = document.getElementById('transaction-table-body');
+    if (!tbody) return;
+
+    let url = `${API_TRANSACTIONS_URL}?action=get_transactions&page=${page}`;
+
+    // Apply Date Range Filters if present
+    const fromDate = document.getElementById('filter-from-date')?.value;
+    const toDate = document.getElementById('filter-to-date')?.value;
+    const searchDate = document.getElementById('search-date')?.value;
+
+    if (fromDate && toDate) {
+        url += `&from_date=${fromDate}&to_date=${toDate}`;
+    } else if (searchDate) {
+        url += `&date=${searchDate}`;
+    }
+
+    try {
+        const response = await fetch(url);
+        const result = await response.json();
+
+        if (result.status === 'success' && Array.isArray(result.data)) {
+            renderTableRows(result.data);
+            renderPaginationControls(result.pagination);
+        } else {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 20px; color: #ef4444;">មិនមានទិន្នន័យប្រតិបត្តិការឡើយ។</td></tr>`;
+        }
+    } catch (err) {
+        console.error("Error loading transactions:", err);
+    }
+}
+
+function renderTableRows(data) {
+    const tbody = document.getElementById('transaction-table-body');
+    if (!tbody) return;
+
+    if (data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 20px; color: #6b7280;">មិនមានប្រតិបត្តិការនៅក្នុងចន្លោះកាលបរិច្ឆេទនេះឡើយ។</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = data.map(row => {
+        const typeColor = row.type === 'income' ? '#10b981' : '#ef4444';
+        const typeText = row.type === 'income' ? 'ចំណូល' : 'ចំណាយ';
+        const receiptBadge = row.receipt_image ? `<a href="${row.receipt_image}" target="_blank" style="color: #2563eb; font-size: 0.85rem; text-decoration: underline;">🧾 មើលវិក្កយបត្រ</a>` : `<span style="color: #9ca3af; font-size: 0.85rem;">គ្មាន</span>`;
+
+        return `
+            <tr>
+                <td data-label="កាលបរិច្ឆេទ">${row.date}</td>
+                <td data-label="បរិយាយ"><strong>${row.description}</strong></td>
+                <td data-label="អ្នកបន្ថែម">${row.creator || 'User'}</td>
+                <td data-label="ប្រភេទ"><span style="color: ${typeColor}; font-weight: bold;">${typeText} (${row.category})</span></td>
+                <td data-label="ចំនួនទឹកប្រាក់" style="font-weight: bold; color: ${typeColor};">${row.amount} ${row.currency}</td>
+                <td data-label="វិក្កយបត្រ">${receiptBadge}</td>
+                <td data-label="សកម្មភាព" style="text-align: center;">
+                    <button class="btn" style="padding: 4px 10px; font-size: 0.8rem; background: #ef4444; color: white;" onclick="softDeleteTransaction(${row.id})">លុប</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function renderPaginationControls(pagination) {
+    const container = document.getElementById('pagination-controls');
+    if (!container || !pagination) return;
+
+    container.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0; font-size: 0.88rem;">
+            <span>ទំព័រទី <strong>${pagination.current_page}</strong> នៃ <strong>${pagination.total_pages}</strong> (សរុប ${pagination.total_records} ប្រតិបត្តិការ)</span>
+            <div style="display: flex; gap: 6px;">
+                <button class="btn btn-secondary" style="padding: 4px 12px; font-size: 0.85rem;" ${pagination.current_page <= 1 ? 'disabled' : ''} onclick="loadTransactionsTable(${pagination.current_page - 1})">← មុន</button>
+                <button class="btn btn-secondary" style="padding: 4px 12px; font-size: 0.85rem;" ${pagination.current_page >= pagination.total_pages ? 'disabled' : ''} onclick="loadTransactionsTable(${pagination.current_page + 1})">បន្ទាប់ →</button>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Open Audit Log Viewer Modal for Admins
+ */
+async function openAuditLogModal() {
+    const modal = document.getElementById('audit-log-modal');
+    const tbody = document.getElementById('audit-log-table-body');
+    if (!modal || !tbody) return;
+
+    modal.classList.add('active');
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: #6b7280;">កំពុងទាញយក Audit Logs...</td></tr>`;
+
+    try {
+        const response = await fetch(`${API_BASE_URL}?action=get_audit_logs`);
+        const result = await response.json();
+
+        if (result.status === 'success' && Array.isArray(result.data)) {
+            tbody.innerHTML = result.data.map(log => `
+                <tr>
+                    <td style="padding: 10px; font-size: 0.85rem;">${log.created_at}</td>
+                    <td style="padding: 10px; font-weight: 600;">👤 ${log.username || 'System'}</td>
+                    <td style="padding: 10px;"><span style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;">${log.action}</span></td>
+                    <td style="padding: 10px; font-size: 0.85rem; color: #4b5563;">${log.details || '-'}</td>
+                    <td style="padding: 10px; font-size: 0.85rem; color: #6b7280;">${log.ip_address}</td>
+                </tr>
+            `).join('');
+        } else {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: #ef4444;">មិនអាចទាញយក Audit Logs បានឡើយ។</td></tr>`;
+        }
+    } catch (err) {
+        console.error("Failed to load audit logs:", err);
+    }
+}
+
+function closeAuditLogModal() {
+    const modal = document.getElementById('audit-log-modal');
+    if (modal) modal.classList.remove('active');
+}
+
+/**
+ * Show Custom Toast Notification
  */
 function showToast(message, type = 'success') {
     let container = document.getElementById('toast-container');
     if (!container) {
         container = document.createElement('div');
         container.id = 'toast-container';
-        container.style.position = 'fixed';
-        container.style.top = '20px';
-        container.style.right = '20px';
-        container.style.zIndex = '9999';
-        container.style.display = 'flex';
-        container.style.flexDirection = 'column';
-        container.style.gap = '10px';
+        container.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px;';
         document.body.appendChild(container);
     }
-    
+
     const toast = document.createElement('div');
-    toast.style.minWidth = '300px';
-    toast.style.padding = '12px 20px';
-    toast.style.borderRadius = '8px';
-    toast.style.color = '#ffffff';
-    toast.style.fontFamily = "'Kantumruy Pro', sans-serif";
-    toast.style.fontSize = '0.9rem';
-    toast.style.fontWeight = '600';
-    toast.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)';
-    toast.style.display = 'flex';
-    toast.style.alignItems = 'center';
-    toast.style.justifyContent = 'space-between';
-    toast.style.transition = 'all 0.3s ease-in-out';
-    toast.style.transform = 'translateX(120%)';
-    toast.style.opacity = '0';
-    
-    if (type === 'success') {
-        toast.style.backgroundColor = '#10b981'; // Green
-        toast.innerHTML = `<span>🎉 ${message}</span>`;
-    } else if (type === 'error') {
-        toast.style.backgroundColor = '#ef4444'; // Red
-        toast.innerHTML = `<span>❌ ${message}</span>`;
-    } else {
-        toast.style.backgroundColor = '#3b82f6'; // Blue / Info
-        toast.innerHTML = `<span>ℹ️ ${message}</span>`;
-    }
-    
-    const closeBtn = document.createElement('span');
-    closeBtn.innerHTML = '&times;';
-    closeBtn.style.cursor = 'pointer';
-    closeBtn.style.fontSize = '1.25rem';
-    closeBtn.style.marginLeft = '15px';
-    closeBtn.addEventListener('click', () => {
-        toast.style.transform = 'translateX(120%)';
-        toast.style.opacity = '0';
-        setTimeout(() => toast.remove(), 300);
-    });
-    toast.appendChild(closeBtn);
+    toast.style.cssText = `min-width: 280px; padding: 12px 18px; border-radius: 8px; color: #fff; font-family: 'Kantumruy Pro', sans-serif; font-size: 0.9rem; font-weight: 600; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); background-color: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#2563eb'}; transition: all 0.3s; transform: translateX(120%);`;
+
+    toast.innerHTML = `<span>${type === 'success' ? '🎉' : type === 'error' ? '❌' : 'ℹ️'} ${message}</span>`;
     container.appendChild(toast);
-    
-    // Trigger animation
+
+    setTimeout(() => toast.style.transform = 'translateX(0)', 50);
     setTimeout(() => {
-        toast.style.transform = 'translateX(0)';
-        toast.style.opacity = '1';
-    }, 50);
-    
-    // Auto remove
-    setTimeout(() => {
-        if (toast.parentNode) {
-            toast.style.transform = 'translateX(120%)';
-            toast.style.opacity = '0';
-            setTimeout(() => toast.remove(), 300);
-        }
+        toast.style.transform = 'translateX(120%)';
+        setTimeout(() => toast.remove(), 300);
     }, 4000);
 }
-
-/**
- * Show a beautifully designed custom confirmation modal (replacing browser confirm)
- */
-function showCustomConfirm(message, onConfirm) {
-    let modal = document.getElementById('custom-confirm-modal');
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'custom-confirm-modal';
-        modal.style.position = 'fixed';
-        modal.style.zIndex = '10001';
-        modal.style.left = '0';
-        modal.style.top = '0';
-        modal.style.width = '100%';
-        modal.style.height = '100%';
-        modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
-        modal.style.display = 'none';
-        modal.style.justifyContent = 'center';
-        modal.style.alignItems = 'center';
-        modal.style.fontFamily = "'Kantumruy Pro', sans-serif";
-        
-        modal.innerHTML = `
-            <div style="background-color: #ffffff; padding: 2rem; border-radius: 12px; width: 400px; max-width: 90%; box-shadow: 0 4px 15px rgba(0,0,0,0.2); text-align: center;">
-                <div style="font-size: 3rem; color: #ef4444; margin-bottom: 1rem;">⚠️</div>
-                <h3 style="margin-top: 0; color: #1f2937;" id="custom-confirm-title">បញ្ជាក់សកម្មភាព</h3>
-                <p id="custom-confirm-msg" style="color: #4b5563; font-size: 0.95rem; margin-bottom: 1.5rem;"></p>
-                <div style="display: flex; gap: 12px; justify-content: center;">
-                    <button id="custom-confirm-yes" style="padding: 8px 20px; border: none; background: #ef4444; color: white; border-radius: 6px; font-weight: bold; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.backgroundColor='#dc2626'" onmouseout="this.style.backgroundColor='#ef4444'">យល់ព្រមលុប</button>
-                    <button id="custom-confirm-no" style="padding: 8px 20px; border: 1px solid #d1d5db; background: #ffffff; color: #4b5563; border-radius: 6px; font-weight: bold; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.backgroundColor='#f3f4f6'" onmouseout="this.style.backgroundColor='#ffffff'">បោះបង់</button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-    }
     
-    document.getElementById('custom-confirm-msg').innerText = message;
-    modal.style.display = 'flex';
-    
-    const yesBtn = document.getElementById('custom-confirm-yes');
-    const noBtn = document.getElementById('custom-confirm-no');
-    
-    const newYesBtn = yesBtn.cloneNode(true);
-    const newNoBtn = noBtn.cloneNode(true);
-    yesBtn.parentNode.replaceChild(newYesBtn, yesBtn);
-    noBtn.parentNode.replaceChild(newNoBtn, noBtn);
-    
-    newYesBtn.addEventListener('click', () => {
-        modal.style.display = 'none';
-        if (typeof onConfirm === 'function') onConfirm();
-    });
-    
-    newNoBtn.addEventListener('click', () => {
-        modal.style.display = 'none';
-    });
-}
-
-/**
- * Show action choices (Update/Delete) for a transaction when user clicks the '...' button
- */
-function showActionChoiceModal(id, title, amount, currency, type, category, date) {
-    let modal = document.getElementById('action-choice-modal');
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'action-choice-modal';
-        modal.style.position = 'fixed';
-        modal.style.zIndex = '10000';
-        modal.style.left = '0';
-        modal.style.top = '0';
-        modal.style.width = '100%';
-        modal.style.height = '100%';
-        modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
-        modal.style.display = 'none';
-        modal.style.justifyContent = 'center';
-        modal.style.alignItems = 'center';
-        modal.style.fontFamily = "'Kantumruy Pro', sans-serif";
-        
-        modal.innerHTML = `
-            <div style="background-color: #ffffff; padding: 2rem; border-radius: 12px; width: 420px; max-width: 90%; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
-                <h3 style="margin-top: 0; color: #1e3a8a; border-bottom: 2px solid #e5e7eb; padding-bottom: 0.5rem;" id="action-choice-title">សកម្មភាពប្រតិបត្តិការ</h3>
-                <div style="margin: 1rem 0; padding: 10px; background-color: #f3f4f6; border-radius: 8px;">
-                    <span style="font-size: 0.85rem; color: #6b7280;">ប្រតិបត្តិការ៖</span><br>
-                    <strong id="action-choice-desc" style="font-size: 1.05rem; color: #1f2937;"></strong><br>
-                    <span style="font-size: 0.85rem; color: #6b7280;">ទឹកប្រាក់៖</span> <strong id="action-choice-amount" style="color: #2563eb;"></strong>
-                </div>
-                <p style="color: #4b5563; font-size: 0.9rem; margin-bottom: 1.5rem;">សូមជ្រើសរើសសកម្មភាពណាមួយដែលលោកអ្នកចង់អនុវត្តខាងក្រោម៖</p>
-                <div style="display: flex; flex-direction: column; gap: 10px;">
-                    <button id="action-btn-update" style="padding: 10px; border: none; background: #3b82f6; color: white; border-radius: 6px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.2s;" onmouseover="this.style.backgroundColor='#2563eb'" onmouseout="this.style.backgroundColor='#3b82f6'">✏️ កែប្រែទិន្នន័យ (Update)</button>
-                    <button id="action-btn-delete" style="padding: 10px; border: none; background: #ef4444; color: white; border-radius: 6px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.2s;" onmouseover="this.style.backgroundColor='#dc2626'" onmouseout="this.style.backgroundColor='#ef4444'">🗑️ លុបប្រតិបត្តិការ (Delete)</button>
-                    <button id="action-btn-cancel" style="padding: 10px; border: 1px solid #d1d5db; background: #ffffff; color: #4b5563; border-radius: 6px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.2s;" onmouseover="this.style.backgroundColor='#f3f4f6'" onmouseout="this.style.backgroundColor='#ffffff'">បោះបង់</button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-    }
-    
-    const decodedTitle = decodeURIComponent(title);
-    const displayAmount = currency === 'KHR' ? parseFloat(amount).toLocaleString() + ' ៛' : '$' + parseFloat(amount).toFixed(2);
-    
-    document.getElementById('action-choice-desc').innerText = decodedTitle;
-    document.getElementById('action-choice-amount').innerText = displayAmount;
-    
-    modal.style.display = 'flex';
-    
-    const updateBtn = document.getElementById('action-btn-update');
-    const deleteBtn = document.getElementById('action-btn-delete');
-    const cancelBtn = document.getElementById('action-btn-cancel');
-    
-    const newUpdateBtn = updateBtn.cloneNode(true);
-    const newDeleteBtn = deleteBtn.cloneNode(true);
-    const newCancelBtn = cancelBtn.cloneNode(true);
-    
-    updateBtn.parentNode.replaceChild(newUpdateBtn, updateBtn);
-    deleteBtn.parentNode.replaceChild(newDeleteBtn, deleteBtn);
-    cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
-    
-    newUpdateBtn.addEventListener('click', () => {
-        modal.style.display = 'none';
-        editTransactionClick(id, title, amount, currency, type, category, date);
-    });
-    
-    newDeleteBtn.addEventListener('click', () => {
-        modal.style.display = 'none';
-        deleteTransaction(id);
-    });
-    
-    newCancelBtn.addEventListener('click', () => {
-        modal.style.display = 'none';
-    });
-}
-
-
-// Pagination State
-let currentTxPage = 1;
-let txLimitPerPage = 5;
-let currentFilterDate = '';
-
-/**
- * Request Handler Helper
- */
-async function sendRequest(url, method = 'GET', bodyData = null) {
-    const options = {
-        method: method,
-        headers: {
-            'Content-Type': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
-        }
-    };
-    
-    if (bodyData && (method === 'POST' || method === 'PUT' || method === 'DELETE')) {
-        options.body = JSON.stringify(bodyData);
-    }
-
-    try {
-        const response = await fetch(url, options);
-        const result = await response.json();
-        
-        if (!response.ok) {
-            throw new Error(result.message || `Request failed with status ${response.status}`);
-        }
-        return result;
-    } catch (error) {
-        console.error('API Error:', error);
-        throw error;
-    }
-}
-
-/**
- * 1. User Authentication (Login)
- */
-async function loginUser(username, password) {
-    try {
-        const result = await sendRequest(`${API_BASE_URL}?action=login`, 'POST', { username, password });
-        console.log('Login success:', result);
-        localStorage.setItem('current_user', JSON.stringify(result.user));
-        return result;
-    } catch (error) {
-        showToast(`Login Failed: ${error.message}`, 'error');
-        throw error;
-    }
-}
-
-/**
- * 2. User Logout
- */
-async function logoutUser() {
-    try {
-        await sendRequest(`${API_BASE_URL}?action=logout`, 'POST');
-    } catch (error) {
-        console.error('Logout failed, forcing client-side logout:', error);
-    } finally {
-        localStorage.removeItem('current_user');
-        window.location.href = 'login.php';
-    }
-}
-
-/**
- * 3. Retrieve Transaction Metrics
- */
-async function fetchTransactionMetrics() {
-    try {
-        const result = await sendRequest(`${API_TRANSACTIONS_URL}?action=metrics`, 'GET');
-        return result.data;
-    } catch (error) {
-        console.error('Failed to load transaction metrics:', error);
-        return null;
-    }
-}
-
-/**
- * Update Dashboard Metrics Widgets
- */
-async function updateDashboardMetricsUI() {
-    const metrics = await fetchTransactionMetrics();
-    if (!metrics) return;
-
-    const elements = {
-        'total-balance-khr': metrics.balance.KHR,
-        'total-balance-usd': metrics.balance.USD,
-        'total-income-khr': metrics.income.KHR,
-        'total-income-usd': metrics.income.USD,
-        'total-expense-khr': metrics.expense.KHR,
-        'total-expense-usd': metrics.expense.USD
-    };
-
-    for (const [id, value] of Object.entries(elements)) {
-        const el = document.getElementById(id);
-        if (el) {
-            el.innerText = value;
-            if (id.includes('balance')) {
-                const isNegative = (id.includes('khr') && metrics.balance.raw_khr < 0) || 
-                                   (id.includes('usd') && metrics.balance.raw_usd < 0);
-                el.style.color = isNegative ? '#ef4444' : '#10b981';
-            }
-        }
-    }
-}
-
-/**
- * ទាញយក និងបង្ហាញតារាងប្រតិបត្តិការ (Paginated Transactions Table)
- */
-async function loadTransactionsTable(page = 1, limit = 5, dateFilter = '') {
-    const tableBody = document.getElementById('transaction-table-body');
-    if (!tableBody) return;
-
-    currentTxPage = page;
-    txLimitPerPage = limit;
-    currentFilterDate = dateFilter;
-
-    tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">កំពុងទាញយកទិន្នន័យប្រតិបត្តិការ...</td></tr>';
-
-    try {
-        let fetchUrl = `${API_TRANSACTIONS_URL}?page=${page}&limit=${limit}`;
-        if (dateFilter) {
-            fetchUrl += `&date=${dateFilter}`;
-        }
-
-        const response = await fetch(fetchUrl);
-        const result = await response.json();
-
-        if (result.status === 'success') {
-            tableBody.innerHTML = ''; 
-
-            if (result.data.length === 0) {
-                const message = dateFilter 
-                    ? `មិនមានប្រតិបត្តិការណាមួយក្នុងថ្ងៃទី ${dateFilter} នេះទេ។` 
-                    : `មិនទាន់មានប្រតិបត្តិការនៅឡើយទេ។`;
-                tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; color: #6b7280; font-weight: 600;">${message}</td></tr>`;
-                renderPaginationControls({ total_pages: 0, current_page: 0 });
-                return;
-            }
-
-            result.data.forEach(row => {
-                const typeColor = (row.raw_type === 'income') ? '#10b981' : '#ef4444';
-                const tr = document.createElement('tr');
-                tr.style.borderBottom = '1px solid #e5e7eb';
-                
-                const currentUser = JSON.parse(localStorage.getItem('current_user') || '{}');
-                
-                // User can edit/delete their own transaction (row.creator === '-'), Admin/Super Admin can edit/delete any
-                const isOwner = (row.creator === '-');
-                const canModify = isOwner || (currentUser.role === 'super_admin' || currentUser.role === 'admin');
-
-                let actionButtonsHtml = `<span style="color: #9ca3af;">⋯</span>`;
-
-                if (canModify) {
-                    const escapedDesc = encodeURIComponent(row.description);
-                    const escapedCategory = encodeURIComponent(row.category);
-                    
-                    actionButtonsHtml = `
-                        <button onclick="showActionChoiceModal(${row.id}, '${escapedDesc}', ${row.raw_amount}, '${row.raw_currency}', '${row.raw_type}', '${escapedCategory}', '${row.raw_date}')" 
-                                style="background: #f3f4f6; border: 1px solid #cbd5e1; color: #4b5563; cursor: pointer; font-size: 1.1rem; padding: 4px 12px; border-radius: 6px; font-weight: bold; transition: all 0.15s ease-in-out;" 
-                                onmouseover="this.style.backgroundColor='#e5e7eb'; this.style.borderColor='#cbd5e1';"
-                                onmouseout="this.style.backgroundColor='#f3f4f6'; this.style.borderColor='#cbd5e1';"
-                                title="ជម្រើសសកម្មភាព">⋯</button>
-                    `;
-                }
-
-                tr.innerHTML = `
-                    <td style="padding: 12px; font-size: 0.9rem; color: #4b5563;">
-                        <span class="mobile-label">កាលបរិច្ឆេទ</span>
-                        <span class="cell-value">${row.date}</span>
-                    </td>
-                    <td style="padding: 12px; font-weight: 600; color: #1f2937;">
-                        <span class="mobile-label">បរិយាយ</span>
-                        <span class="cell-value">${row.description}</span>
-                    </td>
-                    <td style="padding: 12px; color: #6b7280;">
-                        <span class="mobile-label">អ្នកបន្ថែម</span>
-                        <span class="cell-value">${row.creator}</span>
-                    </td>
-                    <td style="padding: 12px;">
-                        <span class="mobile-label">ប្រភេទ</span>
-                        <span class="cell-value"><span style="color: ${typeColor}; font-weight: bold;">${row.type}</span></span>
-                    </td>
-                    <td style="padding: 12px; font-weight: bold; color: #1f2937;">
-                        <span class="mobile-label">ចំនួនទឹកប្រាក់</span>
-                        <span class="cell-value">${row.amount}</span>
-                    </td>
-                    <td style="padding: 12px; text-align: center;">
-                        <span class="mobile-label">សកម្មភាព</span>
-                        <span class="cell-value">${actionButtonsHtml}</span>
-                    </td>
-                `;
-                tableBody.appendChild(tr);
-            });
-
-            renderPaginationControls(result.pagination);
-        } else {
-            tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; color: #ef4444;">❌ មិនអាចទាញយកទិន្នន័យបានទេ៖ ${result.message}</td></tr>`;
-        }
-    } catch (error) {
-        console.error('Error fetching transactions:', error);
-        tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px; color: #ef4444;">❌ កំហុសក្នុងការតភ្ជាប់ទៅកាន់ Server!</td></tr>';
-    }
-}
-
-/**
- * បង្កើតរបារគ្រប់គ្រងទំព័រ (Pagination UI Builder)
- */
-function renderPaginationControls(pagination) {
-    let container = document.getElementById('pagination-controls');
-    
-    if (!container) {
-        const table = document.querySelector('.transaction-table');
-        if (!table) return;
-        
-        container = document.createElement('div');
-        container.id = 'pagination-controls';
-        table.parentNode.insertBefore(container, table.nextSibling);
-    }
-
-    const { current_page, total_pages, total_records } = pagination;
-
-    container.innerHTML = '';
-    
-    container.style.display = 'flex';
-    container.style.justifyContent = 'space-between';
-    container.style.alignItems = 'center';
-    container.style.marginTop = '1rem';
-    container.style.padding = '0.5rem 1rem';
-    container.style.fontFamily = "'Kantumruy Pro', sans-serif";
-
-    if (total_pages <= 1) {
-        container.style.display = 'none'; 
-        return;
-    }
-
-    const infoSpan = document.createElement('span');
-    infoSpan.style.fontSize = '0.9rem';
-    infoSpan.style.color = '#4b5563';
-    infoSpan.innerText = `ទំព័រទី ${current_page} នៃ ${total_pages} (សរុប ${total_records} ប្រតិបត្តិការ)`;
-    container.appendChild(infoSpan);
-
-    const btnWrapper = document.createElement('div');
-    btnWrapper.style.display = 'flex';
-    btnWrapper.style.gap = '6px';
-
-    const prevBtn = document.createElement('button');
-    prevBtn.innerText = '« មុន';
-    stylePaginationButton(prevBtn, current_page === 1);
-    if (current_page > 1) {
-        prevBtn.addEventListener('click', () => loadTransactionsTable(current_page - 1, txLimitPerPage, currentFilterDate));
-    }
-    btnWrapper.appendChild(prevBtn);
-
-    for (let i = 1; i <= total_pages; i++) {
-        const pageBtn = document.createElement('button');
-        pageBtn.innerText = i;
-        stylePaginationButton(pageBtn, false, i === current_page);
-        pageBtn.addEventListener('click', () => loadTransactionsTable(i, txLimitPerPage, currentFilterDate));
-        btnWrapper.appendChild(pageBtn);
-    }
-
-    const nextBtn = document.createElement('button');
-    nextBtn.innerText = 'បន្ទាប់ »';
-    stylePaginationButton(nextBtn, current_page === total_pages);
-    if (current_page < total_pages) {
-        nextBtn.addEventListener('click', () => loadTransactionsTable(current_page + 1, txLimitPerPage, currentFilterDate));
-    }
-    btnWrapper.appendChild(nextBtn);
-
-    container.appendChild(btnWrapper);
-}
-
-function stylePaginationButton(btn, isDisabled, isActive = false) {
-    btn.style.padding = '6px 12px';
-    btn.style.fontSize = '0.85rem';
-    btn.style.border = '1px solid #e5e7eb';
-    btn.style.borderRadius = '6px';
-    btn.style.cursor = isDisabled ? 'not-allowed' : 'pointer';
-    btn.style.fontFamily = "'Kantumruy Pro', sans-serif";
-    btn.style.fontWeight = '600';
-    btn.style.transition = 'all 0.15s ease-in-out';
-
-    if (isDisabled) {
-        btn.style.backgroundColor = '#f3f4f6';
-        btn.style.color = '#9ca3af';
-    } else if (isActive) {
-        btn.style.backgroundColor = '#2563eb';
-        btn.style.color = '#ffffff';
-        btn.style.borderColor = '#2563eb';
-    } else {
-        btn.style.backgroundColor = '#ffffff';
-        btn.style.color = '#4b5563';
-        
-        btn.addEventListener('mouseover', () => {
-            btn.style.backgroundColor = '#f9fafb';
-            btn.style.borderColor = '#d1d5db';
-        });
-        btn.addEventListener('mouseout', () => {
-            btn.style.backgroundColor = '#ffffff';
-            btn.style.borderColor = '#e5e7eb';
-        });
-    }
-}
-
-/**
- * ៤. លុបប្រតិបត្តិការដោយសុវត្ថិភាព (Soft Delete UI Action with Version archiving)
- */
-async function deleteTransaction(transactionId) {
-    showCustomConfirm("តើលោកអ្នកពិតជាចង់លុបប្រតិបត្តិការនេះមែនទេ? សកម្មភាពនេះនឹងត្រូវបានចម្លងទុកបណ្ណសារសវនកម្ម។", async () => {
-
-    try {
-        const response = await fetch(API_TRANSACTIONS_URL, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ transaction_id: transactionId })
-        });
-
-        const result = await response.json();
-
-        if (result.status === 'success') {
-            showToast(result.message, 'success');
-            loadTransactionsTable(currentTxPage, txLimitPerPage, currentFilterDate);
-            updateDashboardMetricsUI();
-        } else {
-            showToast(result.message, 'error');
-        }
-    } catch (error) {
-        console.error('Error deleting transaction:', error);
-        showToast('បរាជ័យក្នុងការតភ្ជាប់ទៅកាន់ម៉ាស៊ីនបម្រើ!', 'error');
-    }
-    });
-}
-
-/**
- * ៥. ទាញយក និងបង្ហាញប្រវត្តិសវនកម្ម (Audit Archive Table for Admin Panel)
- */
-async function loadAuditHistoryTable() {
-    const tableBody = document.getElementById('history-table-body');
-    if (!tableBody) return;
-
-    tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 30px;">កំពុងទាញយកទិន្នន័យប្រវត្តិសវនកម្ម...</td></tr>';
-
-    try {
-        const response = await fetch(`${API_TRANSACTIONS_URL}?action=admin_history`);
-        const result = await response.json();
-
-        if (result.status === 'success') {
-            tableBody.innerHTML = '';
-
-            if (result.data.length === 0) {
-                tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px; color: #6b7280;">គ្មានកំណត់ត្រាបម្រុងទុកទិន្នន័យកែប្រែ ឬលុបនៅឡើយទេ។</td></tr>';
-                return;
-            }
-
-            result.data.forEach(row => {
-                let actionBadgeClass = 'badge-update';
-                let actionBadgeText = 'កែប្រែ';
-                
-                if (row.action_type === 'DELETE') {
-                    actionBadgeClass = 'badge-delete';
-                    actionBadgeText = 'លុបចោល';
-                } else if (row.action_type === 'RESTORE') {
-                    actionBadgeClass = 'badge-info';
-                    actionBadgeText = 'ស្តារឡើងវិញ';
-                }
-                
-                // Original Values Block
-                const origBlock = `
-                    <div class="comparison-box">
-                        <span class="comparison-label">ទិន្នន័យដើម</span>
-                        <strong>${row.original_description}</strong><br>
-                        ប្រភេទ៖ ${row.original_type} | ក្រុម៖ ${row.original_category}<br>
-                        ទឹកប្រាក់៖ <span style="color: #ef4444; font-weight: bold;">${row.original_amount}</span>
-                    </div>
-                `;
-
-                // New Values Block
-                let newBlock = '';
-                if (row.action_type === 'UPDATE') {
-                    newBlock = `
-                        <div class="comparison-box" style="border-color: #a7f3d0;">
-                            <span class="comparison-label" style="color: #065f46;">ទិន្នន័យថ្មី</span>
-                            <strong>${row.new_description}</strong><br>
-                            ប្រភេទ៖ ${row.new_type} | ក្រុម៖ ${row.new_category}<br>
-                            ទឹកប្រាក់៖ <span style="color: #10b981; font-weight: bold;">${row.new_amount}</span>
-                        </div>
-                    `;
-                } else if (row.action_type === 'RESTORE') {
-                    newBlock = `
-                        <div class="comparison-box" style="background-color: #e0f2fe; border-color: #7dd3fc; text-align: center; display: flex; justify-content: center; align-items: center; min-height: 50px;">
-                            <strong style="color: #0369a1; font-size: 0.8rem;">🔄 បានស្តារឡើងវិញទៅ Dashboard</strong>
-                        </div>
-                    `;
-                } else {
-                    newBlock = `
-                        <div class="comparison-box" style="background-color: #fee2e2; border-color: #fca5a5; text-align: center; display: flex; justify-content: center; align-items: center; min-height: 50px;">
-                            <strong style="color: #991b1b; font-size: 0.8rem;">❌ ត្រូវបានលុបចេញពីប្រព័ន្ធ</strong>
-                        </div>
-                    `;
-                }
-
-                // Restore Button Block for deleted transactions
-                let actionColumnHtml = '';
-                if (row.action_type === 'DELETE') {
-                    if (row.current_deleted_status === 1) {
-                        actionColumnHtml = `
-                            <button onclick="restoreTransaction(${row.transaction_id})" 
-                                    style="background-color: #10b981; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-family: 'Kantumruy Pro', sans-serif; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 4px; transition: background 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.1);"
-                                    onmouseover="this.style.backgroundColor='#059669'"
-                                    onmouseout="this.style.backgroundColor='#10b981'">
-                                🔄 ស្តារឡើងវិញ
-                            </button>
-                        `;
-                    } else {
-                        actionColumnHtml = `<span class="badge" style="background-color: #d1fae5; color: #065f46; font-size: 0.8rem; padding: 4px 8px; border-radius: 50px; font-weight: 600;">✅ បានស្តាររួច</span>`;
-                    }
-                } else {
-                    actionColumnHtml = `<span style="color: #9ca3af; font-size: 0.85rem;">-</span>`;
-                }
-
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td style="padding: 12px; color: #4b5563;">
-                        <span class="mobile-label">កាលបរិច្ឆេទសកម្មភាព</span>
-                        <span class="cell-value"><small>${row.actioned_at}</small></span>
-                    </td>
-                    <td style="padding: 12px;">
-                        <span class="mobile-label">ម្ចាស់ទិន្នន័យ</span>
-                        <span class="cell-value"><strong>${row.owner}</strong></span>
-                    </td>
-                    <td style="padding: 12px;">
-                        <span class="mobile-label">ប្រភេទសកម្មភាព</span>
-                        <span class="cell-value"><span class="badge ${actionBadgeClass}">${actionBadgeText}</span></span>
-                    </td>
-                    <td style="padding: 12px;">
-                        <span class="mobile-label">ទិន្នន័យដើម</span>
-                        <span class="cell-value">${origBlock}</span>
-                    </td>
-                    <td style="padding: 12px;">
-                        <span class="mobile-label">ទិន្នន័យថ្មី</span>
-                        <span class="cell-value">${newBlock}</span>
-                    </td>
-                    <td style="padding: 12px; text-align: center; vertical-align: middle;">
-                        <span class="mobile-label">សកម្មភាព</span>
-                        <span class="cell-value">${actionColumnHtml}</span>
-                    </td>
-                    <td style="padding: 12px;">
-                        <span class="mobile-label">អ្នកអនុវត្ត</span>
-                        <span class="cell-value">👤 <strong>${row.actioned_by}</strong></span>
-                    </td>
-                `;
-                tableBody.appendChild(tr);
-            });
-        } else {
-            tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 30px; color: #ef4444;">❌ បរាជ័យ៖ ${result.message}</td></tr>`;
-        }
-    } catch (error) {
-        console.error('Error fetching audit history:', error);
-        tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 30px; color: #ef4444;">❌ មិនអាចតភ្ជាប់ទៅកាន់ API បានឡើយ។</td></tr>';
-    }
-}
-
-/**
- * ៨. មុខងារស្តារប្រតិបត្តិការដែលលុបចោលឡើងវិញ (Restore Deleted Transaction)
- */
-async function restoreTransaction(transactionId) {
-    showCustomConfirm("តើលោកអ្នកពិតជាចង់ស្តារប្រតិបត្តិការនេះឡើងវិញទៅកាន់ Dashboard ដែរឬទេ?", async () => {
-
-    try {
-        const response = await fetch(`${API_TRANSACTIONS_URL}?action=restore`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ transaction_id: transactionId })
-        });
-
-        const result = await response.json();
-
-        if (result.status === 'success') {
-            showToast(result.message, 'success');
-            // ហៅឱ្យរៀបចំតារាងប្រវត្តិសវនកម្មឡើងវិញ
-            loadAuditHistoryTable();
-            // ធ្វើបច្ចុប្បន្នភាព Dashboard Metrics ផងដែរ ប្រសិនបើមាន Widgets
-            if (document.getElementById('total-balance-khr')) {
-                updateDashboardMetricsUI();
-            }
-        } else {
-            showToast(result.message, 'error');
-        }
-    } catch (error) {
-        console.error('Error restoring transaction:', error);
-        showToast('មានបញ្ហាក្នុងការតភ្ជាប់ទៅកាន់ Server!', 'error');
-    }
-    });
-}
-
-/**
- * ៦. បង្កើត និងគ្រប់គ្រង Edit Modal នៅលើ Frontend
- */
-function createEditModalMarkup() {
-    if (document.getElementById('edit-transaction-modal')) return;
-
-    const modalDiv = document.createElement('div');
-    modalDiv.id = 'edit-transaction-modal';
-    modalDiv.style.display = 'none';
-    modalDiv.style.position = 'fixed';
-    modalDiv.style.zIndex = '1000';
-    modalDiv.style.left = '0';
-    modalDiv.style.top = '0';
-    modalDiv.style.width = '100%';
-    modalDiv.style.height = '100%';
-    modalDiv.style.backgroundColor = 'rgba(0,0,0,0.4)';
-    modalDiv.style.justifyContent = 'center';
-    modalDiv.style.alignItems = 'center';
-
-    modalDiv.innerHTML = `
-        <div style="background-color: #ffffff; padding: 2rem; border-radius: 12px; width: 450px; max-width: 90%; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-family: 'Kantumruy Pro', sans-serif;">
-            <h3 style="margin-top: 0; margin-bottom: 1.5rem; color: #1f2937;">✏️ កែប្រែព័ត៌មានប្រតិបត្តិការ</h3>
-            <form id="edit-transaction-form">
-                <input type="hidden" id="edit-tx-id">
-                
-                <div style="margin-bottom: 1rem;">
-                    <label style="display: block; font-weight: bold; margin-bottom: 0.5rem; font-size: 0.9rem;">បរិយាយ / ឈ្មោះប្រតិបត្តិការ</label>
-                    <input type="text" id="edit-tx-title" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; box-sizing: border-box;" required>
-                </div>
-                
-                <div style="margin-bottom: 1rem;">
-                    <label style="display: block; font-weight: bold; margin-bottom: 0.5rem; font-size: 0.9rem;">ចំនួនទឹកប្រាក់</label>
-                    <div style="display: flex; gap: 0.5rem;">
-                        <input type="number" id="edit-tx-amount" step="any" style="flex: 1; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; box-sizing: border-box;" required>
-                        <select id="edit-tx-currency" style="padding: 8px; border: 1px solid #d1d5db; border-radius: 6px;" required>
-                            <option value="KHR">រៀល (៛)</option>
-                            <option value="USD">ដុល្លារ ($)</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div style="margin-bottom: 1rem;">
-                    <label style="display: block; font-weight: bold; margin-bottom: 0.5rem; font-size: 0.9rem;">ប្រភេទប្រតិបត្តិការ</label>
-                    <select id="edit-tx-type" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px;" required>
-                        <option value="income">ចំណូល (Income)</option>
-                        <option value="expense">ចំណាយ (Expense)</option>
-                    </select>
-                </div>
-                
-                <div style="margin-bottom: 1rem;">
-                    <label style="display: block; font-weight: bold; margin-bottom: 0.5rem; font-size: 0.9rem;">ប្រភេទក្រុម (Category)</label>
-                    <input type="text" id="edit-tx-category" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; box-sizing: border-box;" required>
-                </div>
-                
-                <div style="margin-bottom: 1.5rem;">
-                    <label style="display: block; font-weight: bold; margin-bottom: 0.5rem; font-size: 0.9rem;">កាលបរិច្ឆេទ</label>
-                    <input type="date" id="edit-tx-date" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; box-sizing: border-box;" required>
-                </div>
-                
-                <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
-                    <button type="button" onclick="closeEditTransactionModal()" style="padding: 8px 16px; border: 1px solid #d1d5db; background: #ffffff; border-radius: 6px; cursor: pointer;">បោះបង់</button>
-                    <button type="submit" style="padding: 8px 16px; background: #2563eb; color: #ffffff; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">រក្សាទុកទិន្នន័យ</button>
-                </div>
-            </form>
-        </div>
-    `;
-
-    document.body.appendChild(modalDiv);
-
-    // Modal Submit listener
-    document.getElementById('edit-transaction-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        const payload = {
-            transaction_id: parseInt(document.getElementById('edit-tx-id').value),
-            title: document.getElementById('edit-tx-title').value,
-            amount: parseFloat(document.getElementById('edit-tx-amount').value),
-            currency: document.getElementById('edit-tx-currency').value,
-            type: document.getElementById('edit-tx-type').value,
-            category: document.getElementById('edit-tx-category').value,
-            date: document.getElementById('edit-tx-date').value
-        };
-
-        try {
-            const response = await fetch(API_TRANSACTIONS_URL, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            const result = await response.json();
-
-            if (result.status === 'success') {
-                showToast(result.message, 'success');
-                closeEditTransactionModal();
-                loadTransactionsTable(currentTxPage, txLimitPerPage, currentFilterDate);
-                updateDashboardMetricsUI();
-            } else {
-                showToast(result.message, 'error');
-            }
-        } catch (error) {
-            console.error('Error updating transaction:', error);
-            showToast('មានបញ្ហាក្នុងការតភ្ជាប់ទៅកាន់ Server!', 'error');
-        }
-    });
-}
-
-function editTransactionClick(id, title, amount, currency, type, category, date) {
-    createEditModalMarkup();
-    createResetPasswordModalMarkup();
-    
-    document.getElementById('edit-tx-id').value = id;
-    document.getElementById('edit-tx-title').value = decodeURIComponent(title);
-    document.getElementById('edit-tx-amount').value = amount;
-    document.getElementById('edit-tx-currency').value = currency;
-    document.getElementById('edit-tx-type').value = type;
-    document.getElementById('edit-tx-category').value = decodeURIComponent(category);
-    document.getElementById('edit-tx-date').value = date;
-
-    const modal = document.getElementById('edit-transaction-modal');
-    if (modal) {
-        modal.style.display = 'flex';
-    }
-}
-
-function closeEditTransactionModal() {
-    const modal = document.getElementById('edit-transaction-modal');
-    if (modal) {
-        modal.style.display = 'none';
-    }
-}
-
-
-
-/**
- * ៩. បង្កើតអ្នកប្រើប្រាស់ថ្មីដោយ Admin (Create User by Admin)
- */
-async function createUserByAdmin(username, password, role) {
-    try {
-        const result = await sendRequest(`${API_BASE_URL}?action=create_user`, 'POST', { username, password, role });
-        showToast(result.message, 'success');
-        if (document.getElementById('admin-users-table-body')) {
-            loadUsersTable();
-        }
-        return result;
-    } catch (error) {
-        showToast(`បរាជ័យក្នុងការបង្កើតគណនី៖ ${error.message}`, 'error');
-        throw error;
-    }
-}
-
-/**
- * ១០. ទាញយក និងបង្ហាញបញ្ជីឈ្មោះអ្នកប្រើប្រាស់ (User Management Table)
- */
-async function fetchUsersList() {
-    try {
-        const result = await sendRequest(`${API_BASE_URL}?action=users`, 'GET');
-        return result.data;
-    } catch (error) {
-        console.error('Failed to load registered users:', error);
-        return [];
-    }
-}
-
-async function loadUsersTable() {
-    const tableBody = document.getElementById('admin-users-table-body');
-    if (!tableBody) return;
-
-    tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px;">កំពុងទាញយកទិន្នន័យ...</td></tr>';
-
-    try {
-        const users = await fetchUsersList();
-        tableBody.innerHTML = '';
-
-        if (users.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px; color: #6b7280;">គ្មានគណនីអ្នកប្រើប្រាស់ក្នុងប្រព័ន្ធឡើយ។</td></tr>';
-            return;
-        }
-
-        const currentUser = JSON.parse(localStorage.getItem('current_user') || '{}');
-
-        users.forEach(user => {
-            const tr = document.createElement('tr');
-            tr.style.borderBottom = '1px solid #e5e7eb';
-
-            // Role Badge styling
-            let roleBadgeClass = 'user-badge';
-            if (user.role === 'super_admin') {
-                roleBadgeClass = 'super-admin-badge';
-            } else if (user.role === 'admin') {
-                roleBadgeClass = 'admin-badge';
-            }
-
-            // Status styling
-            const statusColor = user.status === 'active' ? '#10b981' : '#ef4444';
-
-            // Check if current user has permission to reset password for this user
-            // super_admin can reset anyone | admin can only reset 'user' role | Cannot reset self here
-            const isSelf = parseInt(user.id) === parseInt(currentUser.user_id);
-            const canReset = !isSelf && (
-                currentUser.role === 'super_admin' || 
-                (currentUser.role === 'admin' && user.role === 'user')
-            );
-
-            let actionHtml = '';
-            if (isSelf) {
-                actionHtml = `<span style="color: #64748b; font-size: 0.85rem; font-style: italic;">គណនីផ្ទាល់ខ្លួន (ប្តូរក្នុង Profile)</span>`;
-            } else if (canReset) {
-                actionHtml = `
-                    <button onclick="showResetPasswordModal(${user.id}, '${user.username}', '${user.role}')" 
-                            style="background-color: #f59e0b; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-family: 'Kantumruy Pro', sans-serif; font-size: 0.8rem; font-weight: 600; transition: background 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05);"
-                            onmouseover="this.style.backgroundColor='#d97706'"
-                            onmouseout="this.style.backgroundColor='#f59e0b'">
-                        🔑 Reset Password
-                    </button>
-                `;
-            } else {
-                actionHtml = `<span style="color: #94a3b8; font-size: 0.85rem;">គ្មានសិទ្ធិគ្រប់គ្រង</span>`;
-            }
-
-            tr.innerHTML = `
-                <td style="padding: 12px; font-weight: 600; color: #1e293b;">
-                    <span class="mobile-label">ឈ្មោះអ្នកប្រើប្រាស់</span>
-                    <span class="cell-value">👤 ${user.username}</span>
-                </td>
-                <td style="padding: 12px;">
-                    <span class="mobile-label">តួនាទី</span>
-                    <span class="cell-value"><span class="user-role-badge ${roleBadgeClass}">${user.role.toUpperCase()}</span></span>
-                </td>
-                <td style="padding: 12px; font-weight: 600; color: ${statusColor};">
-                    <span class="mobile-label">ស្ថានភាព</span>
-                    <span class="cell-value">${user.status === 'active' ? 'ACTIVE' : 'SUSPENDED'}</span>
-                </td>
-                <td style="padding: 12px; text-align: center; vertical-align: middle;">
-                    <span class="mobile-label">សកម្មភាព</span>
-                    <span class="cell-value">${actionHtml}</span>
-                </td>
-            `;
-            tableBody.appendChild(tr);
-        });
-    } catch (error) {
-        console.error('Error rendering users table:', error);
-        tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px; color: #ef4444;">❌ មិនអាចទាញយកបញ្ជីគណនីបានឡើយ។</td></tr>';
-    }
-}
-
-/**
- * ១១. បង្កើត និងគ្រប់គ្រង Reset Password Modal
- */
-function createResetPasswordModalMarkup() {
-    if (document.getElementById('reset-password-modal')) return;
-
-    const modalDiv = document.createElement('div');
-    modalDiv.id = 'reset-password-modal';
-    modalDiv.style.display = 'none';
-    modalDiv.style.position = 'fixed';
-    modalDiv.style.zIndex = '10002';
-    modalDiv.style.left = '0';
-    modalDiv.style.top = '0';
-    modalDiv.style.width = '100%';
-    modalDiv.style.height = '100%';
-    modalDiv.style.backgroundColor = 'rgba(0,0,0,0.4)';
-    modalDiv.style.justifyContent = 'center';
-    modalDiv.style.alignItems = 'center';
-
-    modalDiv.innerHTML = `
-        <div style="background-color: #ffffff; padding: 2rem; border-radius: 12px; width: 420px; max-width: 90%; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); font-family: 'Kantumruy Pro', sans-serif;">
-            <h3 style="margin-top: 0; margin-bottom: 1.5rem; color: #1e3a8a; border-bottom: 2px solid #e5e7eb; padding-bottom: 0.5rem; font-weight: 700;">🔑 Reset Password គណនីបុគ្គលិក</h3>
-            <form id="admin-reset-password-form">
-                <input type="hidden" id="reset-user-id">
-                <input type="hidden" id="reset-user-role">
-                
-                <div style="margin-bottom: 1.5rem; padding: 12px; background-color: #eff6ff; border-radius: 8px; border-left: 4px solid #2563eb;">
-                    <span style="font-size: 0.85rem; color: #1e40af; font-weight: 600;">គណនី៖</span> <strong id="reset-user-username" style="font-size: 1.05rem; color: #1e3a8a;"></strong><br>
-                    <span style="font-size: 0.85rem; color: #1e40af; font-weight: 600;">តួនាទី៖</span> <strong id="reset-user-role-badge" style="color: #2563eb; text-transform: uppercase; font-size: 0.85rem;"></strong>
-                </div>
-
-                <div style="margin-bottom: 1.5rem;">
-                    <label style="display: block; font-weight: bold; margin-bottom: 0.5rem; font-size: 0.9rem; color: #475569;">ពាក្យសម្ងាត់ថ្មី (New Password)</label>
-                    <input type="password" id="reset-new-password" style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-size: 1rem; outline: none; transition: border-color 0.2s;" placeholder="••••••••" required autocomplete="new-password">
-                    <p id="reset-pw-help-text" style="margin-top: 0.5rem; margin-bottom: 0; font-size: 0.8rem; color: #64748b; line-height: 1.4;"></p>
-                </div>
-                
-                <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
-                    <button type="button" onclick="closeResetPasswordModal()" style="padding: 8px 16px; border: 1px solid #cbd5e1; background: #ffffff; color: #4b5563; border-radius: 6px; cursor: pointer; font-weight: bold; font-family: inherit;">បោះបង់</button>
-                    <button type="submit" style="padding: 8px 16px; background: #2563eb; color: #ffffff; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-family: inherit; transition: background 0.2s;" onmouseover="this.style.backgroundColor='#1d4ed8'" onmouseout="this.style.backgroundColor='#2563eb'">រក្សាទុកពាក្យសម្ងាត់</button>
-                </div>
-            </form>
-        </div>
-    `;
-
-    document.body.appendChild(modalDiv);
-
-    // Modal submit handler
-    document.getElementById('admin-reset-password-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        const userId = parseInt(document.getElementById('reset-user-id').value);
-        const userRole = document.getElementById('reset-user-role').value;
-        const newPassword = document.getElementById('reset-new-password').value;
-
-        // Form validation check
-        const minLength = (userRole === 'super_admin' || userRole === 'admin') ? 12 : 8;
-        if (newPassword.length < minLength) {
-            showToast(`ពាក្យសម្ងាត់សម្រាប់តួនាទី ${userRole.toUpperCase()} ត្រូវតែមានប្រវែងយ៉ាងតិច ${minLength} ខ្ទង់!`, 'error');
-            return;
-        }
-
-        try {
-            const result = await resetUserPasswordByAdmin(userId, newPassword);
-            showToast(result.message, 'success');
-            closeResetPasswordModal();
-            loadUsersTable(); // Reload users table to show updated status if relevant
-        } catch (error) {
-            // Error toast handled inside resetUserPasswordByAdmin
-        }
-    });
-}
-
-function showResetPasswordModal(id, username, role) {
-    createResetPasswordModalMarkup();
-
-    document.getElementById('reset-user-id').value = id;
-    document.getElementById('reset-user-role').value = role;
-    document.getElementById('reset-user-username').innerText = username;
-    document.getElementById('reset-user-role-badge').innerText = role.toUpperCase();
-    document.getElementById('reset-new-password').value = '';
-
-    const minLength = (role === 'super_admin' || role === 'admin') ? 12 : 8;
-    document.getElementById('reset-pw-help-text').innerHTML = `ពាក្យសម្ងាត់សម្រាប់តួនាទី <strong>${role.toUpperCase()}</strong> ត្រូវមានប្រវែងយ៉ាងតិច <strong>${minLength} ខ្ទង់</strong>។`;
-
-    const modal = document.getElementById('reset-password-modal');
-    if (modal) {
-        modal.style.display = 'flex';
-        document.getElementById('reset-new-password').focus();
-    }
-}
-
-function closeResetPasswordModal() {
-    const modal = document.getElementById('reset-password-modal');
-    if (modal) {
-        modal.style.display = 'none';
-    }
-}
-
-async function resetUserPasswordByAdmin(targetUserId, newPassword) {
-    try {
-        const result = await sendRequest(`${API_BASE_URL}?action=reset_password`, 'POST', {
-            target_user_id: targetUserId,
-            new_password: newPassword
-        });
-        return result;
-    } catch (error) {
-        showToast(`បរាជ័យក្នុងការ Reset Password៖ ${error.message}`, 'error');
-        throw error;
-    }
-}
-
-
-// --- ៧. Setup Listeners and Autoloaders ---
-document.addEventListener('DOMContentLoaded', () => {
-    // បង្កើត Modal Container ត្រៀមជាមុនសិន
-    createEditModalMarkup();
-    createResetPasswordModalMarkup();
-
-    // ធ្វើបច្ចុប្បន្នភាព Metrics លើ Dashboard
-    if (document.getElementById('total-balance-khr')) {
-        updateDashboardMetricsUI();
-    }
-    
-    // <b>ទាញយកបញ្ជីប្រតិបត្តិការទំព័រដំបូង</b>
-    if (document.getElementById('transaction-table-body')) {
-        loadTransactionsTable(1, 5);
-    }
-    
-    // <b>ទាញយកបញ្ជីគណនីអ្នកប្រើប្រាស់ (User Management Table)</b>
-    if (document.getElementById('admin-users-table-body')) {
-        loadUsersTable();
-    }
-
-    // ភ្ជាប់ Event Listener សម្រាប់ឧបករណ៍ស្វែងរកថ្ងៃខែ (Date Filter Search & Dynamic Download Links)
-    const dateInput = document.getElementById('search-date') || document.getElementById('filter-date');
-    if (dateInput) {
-        dateInput.addEventListener('change', (e) => {
-            const selectedDate = e.target.value;
-            loadTransactionsTable(1, txLimitPerPage, selectedDate);
-
-            // Update PDF and CSV links dynamically
-            const pdfLinks = document.querySelectorAll('a[href^="pdf.php"]');
-            const csvLinks = document.querySelectorAll('a[href^="export-csv.php"]');
-
-            pdfLinks.forEach(link => {
-                link.href = selectedDate ? `pdf.php?date=${selectedDate}` : 'pdf.php';
-            });
-            csvLinks.forEach(link => {
-                link.href = selectedDate ? `export-csv.php?date=${selectedDate}` : 'export-csv.php';
-            });
-        });
-    }
-
-    // Form បញ្ចូលប្រតិបត្តិការថ្មី (POST)
-    const transactionForm = document.getElementById('transaction-form');
-    if (transactionForm) {
-        transactionForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const payload = {
-                title: document.getElementById('title').value,
-                amount: parseFloat(document.getElementById('amount').value),
-                currency: document.getElementById('currency').value,
-                type: document.getElementById('type').value,
-                category: document.getElementById('category').value,
-                date: document.getElementById('date').value
-            };
-
-            try {
-                const response = await fetch(API_TRANSACTIONS_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                const result = await response.json();
-
-                if (result.status === 'success') {
-                    showToast(result.message, 'success');
-                    transactionForm.reset();
-                    loadTransactionsTable(1, txLimitPerPage, currentFilterDate);
-                    updateDashboardMetricsUI();
-                } else {
-                    showToast(result.message, 'error');
-                }
-            } catch (error) {
-                console.error('Error adding transaction:', error);
-                showToast('មានបញ្ហាក្នុងការតភ្ជាប់ទៅកាន់ Server!', 'error');
-            }
-        });
-    }
-});
