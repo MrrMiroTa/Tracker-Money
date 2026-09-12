@@ -1,15 +1,16 @@
 <?php
 /**
- * index-v11.php - Complete Production Financial Dashboard
+ * index-v12.php - Ultra-Modern Production Financial Dashboard
  * Part of the Khmer Payment Tracker and Financial Management System
  * 
  * Features:
+ * - Ultra-Modern SaaS Dashboard UI with sleek Glassmorphic Header & Cards
  * - Real-time Chart.js Analytics (Income vs Expense Bar Chart, Category Doughnut Chart)
  * - Exchange Rate Converter ($1 USD = X KHR) & Unified Total Balance Calculation
  * - Category Budget Tracking & Threshold Warning Banners
  * - Advanced Date Range Filtering (From Date - To Date)
- * - Audit Log Viewer for Admins
- * - Mobile-first responsive layout with Hamburger Navigation Toggle
+ * - Audit Log Viewer Modal for Admins
+ * - Mobile-first responsive layout with Hamburger Navigation Toggle & Mobile Card Views
  */
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -34,7 +35,7 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ប្រព័ន្ធគ្រប់គ្រងហិរញ្ញវត្ថុ - Production Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@300;400;600;700&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="admin-style.css">
     <link rel="icon" type="image/x-icon" href="icon.png">
     <!-- Chart.js Engine for Visual Analytics -->
@@ -51,7 +52,7 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
         }));
     </script>
 
-    <!-- Sticky Navigation Bar with Burger Toggle -->
+    <!-- Sticky Glassmorphic Navigation Bar with Burger Toggle -->
     <nav class="navbar">
         <div class="navbar-brand">
             <span>📊 ប្រព័ន្ធគ្រប់គ្រងហិរញ្ញវត្ថុ</span>
@@ -77,8 +78,13 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
         
         <!-- Welcome Banner -->
         <div class="welcome-banner">
-            <h1>សួស្តី, <?php echo htmlspecialchars($username); ?>!</h1>
-            <p>នេះជាផ្ទាំងស្ថិតិហិរញ្ញវត្ថុប្រចាំថ្ងៃរបស់អ្នក។ តួនាទីបច្ចុប្បន្ន៖ <strong style="text-transform: uppercase; color: #2563eb;"><?php echo htmlspecialchars($role); ?></strong></p>
+            <div>
+                <h1>សួស្តី, <?php echo htmlspecialchars($username); ?>! 👋</h1>
+                <p>នេះជាផ្ទាំងស្ថិតិហិរញ្ញវត្ថុប្រចាំថ្ងៃរបស់អ្នក។ តាមដានចំណូល និងចំណាយបានយ៉ាងងាយស្រួល។</p>
+            </div>
+            <div>
+                <span class="role-badge-pill">តួនាទី៖ <?php echo htmlspecialchars($role); ?></span>
+            </div>
         </div>
 
         <!-- 1. Unified Exchange Rate Banner Widget -->
@@ -89,7 +95,7 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
                 <span><strong>៛ KHR</strong></span>
             </div>
             <div class="unified-balance-display">
-                <span>សរុបរួម (Unified Balance)៖</span>
+                <span style="font-weight: 600;">សមតុល្យសរុបរួម (Unified Balance)៖</span>
                 <span class="unified-badge" id="unified-total-usd">$0.00</span>
                 <span class="unified-badge" id="unified-total-khr">0 ៛</span>
             </div>
@@ -99,38 +105,50 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
         <div class="metrics-grid">
             
             <!-- កាតសមតុល្យសរុប -->
-            <div class="metric-card">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
-                    <h3 style="margin: 0; font-size: 1.05rem; color: #374151;">💰 សមតុល្យសរុប (Total Balance)</h3>
-                    <span style="font-size: 1.5rem;">💵</span>
+            <div class="metric-card metric-card-balance">
+                <div class="metric-header">
+                    <h3>💰 សមតុល្យសរុប (Total Balance)</h3>
+                    <div class="metric-icon-box icon-balance">💵</div>
                 </div>
-                <div style="display: flex; flex-direction: column; gap: 0.25rem;">
-                    <span style="font-size: 0.9rem; color: #6b7280;">KHR (រៀល)៖ <strong id="total-balance-khr" style="font-size: 1.25rem; color: #10b981;">0 ៛</strong></span>
-                    <span style="font-size: 0.9rem; color: #6b7280;">USD (ដុល្លារ)៖ <strong id="total-balance-usd" style="font-size: 1.25rem; color: #10b981;">$0.00</strong></span>
+                <div class="currency-row">
+                    <span class="currency-label">KHR (រៀល)</span>
+                    <span class="currency-value" id="total-balance-khr" style="color: var(--success);">0 ៛</span>
+                </div>
+                <div class="currency-row">
+                    <span class="currency-label">USD (ដុល្លារ)</span>
+                    <span class="currency-value" id="total-balance-usd" style="color: var(--success);">$0.00</span>
                 </div>
             </div>
 
             <!-- កាតចំណូលសរុប -->
-            <div class="metric-card">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
-                    <h3 style="margin: 0; font-size: 1.05rem; color: #374151;">📈 ចំណូលសរុប (Total Income)</h3>
-                    <span style="font-size: 1.5rem;">📈</span>
+            <div class="metric-card metric-card-income">
+                <div class="metric-header">
+                    <h3>📈 ចំណូលសរុប (Total Income)</h3>
+                    <div class="metric-icon-box icon-income">📈</div>
                 </div>
-                <div style="display: flex; flex-direction: column; gap: 0.25rem;">
-                    <span style="font-size: 0.9rem; color: #6b7280;">KHR (រៀល)៖ <strong id="total-income-khr" style="font-size: 1.25rem; color: #10b981;">0 ៛</strong></span>
-                    <span style="font-size: 0.9rem; color: #6b7280;">USD (ដុល្លារ)៖ <strong id="total-income-usd" style="font-size: 1.25rem; color: #10b981;">$0.00</strong></span>
+                <div class="currency-row">
+                    <span class="currency-label">KHR (រៀល)</span>
+                    <span class="currency-value" id="total-income-khr" style="color: var(--success);">0 ៛</span>
+                </div>
+                <div class="currency-row">
+                    <span class="currency-label">USD (ដុល្លារ)</span>
+                    <span class="currency-value" id="total-income-usd" style="color: var(--success);">$0.00</span>
                 </div>
             </div>
 
             <!-- កាតចំណាយសរុប -->
-            <div class="metric-card">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
-                    <h3 style="margin: 0; font-size: 1.05rem; color: #374151;">📉 ចំណាយសរុប (Total Expense)</h3>
-                    <span style="font-size: 1.5rem;">📉</span>
+            <div class="metric-card metric-card-expense">
+                <div class="metric-header">
+                    <h3>📉 ចំណាយសរុប (Total Expense)</h3>
+                    <div class="metric-icon-box icon-expense">📉</div>
                 </div>
-                <div style="display: flex; flex-direction: column; gap: 0.25rem;">
-                    <span style="font-size: 0.9rem; color: #6b7280;">KHR (រៀល)៖ <strong id="total-expense-khr" style="font-size: 1.25rem; color: #ef4444;">0 ៛</strong></span>
-                    <span style="font-size: 0.9rem; color: #6b7280;">USD (ដុល្លារ)៖ <strong id="total-expense-usd" style="font-size: 1.25rem; color: #ef4444;">$0.00</strong></span>
+                <div class="currency-row">
+                    <span class="currency-label">KHR (រៀល)</span>
+                    <span class="currency-value" id="total-expense-khr" style="color: var(--danger);">0 ៛</span>
+                </div>
+                <div class="currency-row">
+                    <span class="currency-label">USD (ដុល្លារ)</span>
+                    <span class="currency-value" id="total-expense-usd" style="color: var(--danger);">$0.00</span>
                 </div>
             </div>
 
@@ -164,17 +182,17 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
 
         <?php if ($role === 'super_admin' || $role === 'admin'): ?>
         <!-- 5. Admin Control Bar -->
-        <div class="admin-control-bar" style="display: flex; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap; background-color: var(--white); padding: 1rem; border-radius: var(--radius-lg); border: 1px solid var(--gray-border); box-shadow: var(--shadow);">
-            <span style="font-weight: 700; color: #1e3a8a; display: flex; align-items: center; gap: 8px; width: 100%; margin-bottom: 0.25rem; font-size: 1rem;">
+        <div class="admin-control-bar">
+            <span style="font-weight: 800; color: var(--dark); display: flex; align-items: center; gap: 8px; width: 100%; margin-bottom: 0.25rem; font-size: 1.05rem;">
                 🛠️ ផ្ទាំងគ្រប់គ្រងសិទ្ធិអភិបាលប្រព័ន្ធ (Administrative Controls)
             </span>
-            <button id="toggle-create-user-btn" class="btn" style="background-color: #10b981; color: white; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; font-size: 0.88rem; border-radius: var(--radius-sm); border: none; cursor: pointer;">
+            <button id="toggle-create-user-btn" class="btn" style="background-color: var(--success); color: white;">
                 👤 បង្កើតគណនីថ្មី (Create Account)
             </button>
-            <button id="toggle-manage-users-btn" class="btn" style="background-color: #2563eb; color: white; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; font-size: 0.88rem; border-radius: var(--radius-sm); border: none; cursor: pointer;">
+            <button id="toggle-manage-users-btn" class="btn" style="background-color: var(--primary); color: white;">
                 👥 គ្រប់គ្រងគណនី (Manage Users)
             </button>
-            <button onclick="openAuditLogModal()" class="btn" style="background-color: #8b5cf6; color: white; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; font-size: 0.88rem; border-radius: var(--radius-sm); border: none; cursor: pointer;">
+            <button onclick="openAuditLogModal()" class="btn" style="background-color: #8b5cf6; color: white;">
                 📜 មើល Audit Logs (Audit Log Viewer)
             </button>
         </div>
@@ -185,7 +203,7 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
 
             <!-- ផ្នែកបន្ថែមប្រតិបត្តិការថ្មី (Transaction Form) -->
             <div class="card">
-                <h2 class="form-title">បន្ថែមប្រតិបត្តិការថ្មី</h2>
+                <h2 class="form-title">➕ បន្ថែមប្រតិបត្តិការថ្មី</h2>
                 <form id="transaction-form">
                     <div class="form-group">
                         <label for="title">បរិយាយ / ឈ្មោះប្រតិបត្តិការ</label>
@@ -221,14 +239,14 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
                         <label for="date">កាលបរិច្ឆេទ</label>
                         <input type="datetime-local" id="date" required>
                     </div>
-                    <button type="submit" class="btn-submit">រក្សាទុកទិន្នន័យ (Save)</button>
+                    <button type="submit" class="btn-submit">💾 រក្សាទុកទិន្នន័យ (Save Transaction)</button>
                 </form>
             </div>
 
             <!-- ផ្នែកបញ្ជីប្រតិបត្តិការហិរញ្ញវត្ថុ (Transaction Table) -->
             <div class="card">
                 <div class="table-header-row">
-                    <h2>បញ្ជីប្រតិបត្តិការហិរញ្ញវត្ថុ</h2>
+                    <h2 style="margin: 0; font-size: 1.25rem; font-weight: 800; color: var(--dark);">📋 បញ្ជីប្រតិបត្តិការហិរញ្ញវត្ថុ</h2>
                 </div>
 
                 <!-- 7. Advanced Date Range Filter Bar -->
@@ -238,7 +256,7 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
                     <input type="date" id="filter-from-date">
                     <span>ដល់៖</span>
                     <input type="date" id="filter-to-date">
-                    <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="loadTransactionsTable(1)">🔍 ចម្រោះ</button>
+                    <button class="btn btn-secondary" style="padding: 6px 14px; font-size: 0.85rem;" onclick="loadTransactionsTable(1)">🔍 ចម្រោះ</button>
                 </div>
 
                 <!-- Responsive Table Wrapper -->
@@ -257,7 +275,7 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
                         </thead>
                         <tbody id="transaction-table-body">
                             <tr>
-                                <td colspan="7" style="text-align: center; padding: 20px; color: #6b7280;">កំពុងទាញយកទិន្នន័យប្រតិបត្តិការ...</td>
+                                <td colspan="7" style="text-align: center; padding: 20px; color: var(--gray-text);">កំពុងទាញយកទិន្នន័យប្រតិបត្តិការ...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -274,11 +292,11 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
     <!-- 8. Audit Log Viewer Popup Modal -->
     <div id="audit-log-modal" class="modal-backdrop">
         <div class="modal-content-card">
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.75rem; margin-bottom: 1rem;">
-                <h3 style="margin: 0; color: #1e3a8a;">📜 កំណត់ហេតុសវនកម្មសន្តិសុខ (Audit Log Viewer)</h3>
-                <button class="btn btn-secondary" style="padding: 4px 10px;" onclick="closeAuditLogModal()">&times; បិទ</button>
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--gray-bg); padding-bottom: 0.85rem; margin-bottom: 1.25rem;">
+                <h3 style="margin: 0; color: var(--dark); font-weight: 800;">📜 កំណត់ហេតុសវនកម្មសន្តិសុខ (Audit Log Viewer)</h3>
+                <button class="btn btn-secondary" style="padding: 4px 12px;" onclick="closeAuditLogModal()">&times; បិទ</button>
             </div>
-            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+            <div class="table-responsive" style="max-height: 420px; overflow-y: auto;">
                 <table class="transaction-table" style="width: 100%;">
                     <thead>
                         <tr>
@@ -291,7 +309,7 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
                     </thead>
                     <tbody id="audit-log-table-body">
                         <tr>
-                            <td colspan="5" style="text-align: center; padding: 20px; color: #6b7280;">កំពុងទាញយក...</td>
+                            <td colspan="5" style="text-align: center; padding: 20px; color: var(--gray-text);">កំពុងទាញយក...</td>
                         </tr>
                     </tbody>
                 </table>
