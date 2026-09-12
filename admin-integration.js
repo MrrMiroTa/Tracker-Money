@@ -1,15 +1,16 @@
 /**
- * admin-integration.js - Production JavaScript Engine (v16)
+ * admin-integration.js - Production JavaScript Engine (v17)
  * Part of the Khmer Payment Tracker and Financial Management System
  * 
  * Features:
+ * - 3-Dots (...) Activity Action Dropdown Menu with Update & Delete Options
  * - Real-time Chart.js Analytics (Income vs Expense Bar Chart, Category Doughnut Chart)
  * - Exchange Rate Converter ($1 USD = X KHR) & Unified Total Balance Calculation
  * - Category Budget Tracking & Threshold Warnings (>80% and Exceeded)
  * - Advanced Date Range Filtering (From Date - To Date)
  * - Audit Log Viewer for Admins
  * - Optional Receipt File Upload Handling
- * - Dual Activity Options: ✏️ កែប្រែ (Update) & 🗑️ លុប (Delete)
+ * - Interactive Modal Confirmation Dialogs
  */
 
 const API_BASE_URL = 'api-v2.php';
@@ -46,8 +47,20 @@ function initApp() {
     setupDateFilterListeners();
     setupTransactionForm();
     setupEditTransactionForm();
+    setupDropdownCloseListener();
     loadDashboardMetricsAndCharts();
     loadTransactionsTable(1);
+}
+
+/**
+ * Setup Global Click Listener to Close Open Action Dropdown Menus
+ */
+function setupDropdownCloseListener() {
+    document.addEventListener('click', () => {
+        document.querySelectorAll('.action-menu.show').forEach(menu => {
+            menu.classList.remove('show');
+        });
+    });
 }
 
 /**
@@ -254,7 +267,7 @@ function setupEditTransactionForm() {
 }
 
 /**
- * Open Edit Transaction Modal
+ * Open Edit Transaction Modal Window
  */
 function openEditTransactionModal(id, title, amount, currency, type, category, date) {
     let modal = document.getElementById('edit-transaction-modal');
@@ -274,6 +287,46 @@ function openEditTransactionModal(id, title, amount, currency, type, category, d
 function closeEditTransactionModal() {
     const modal = document.getElementById('edit-transaction-modal');
     if (modal) modal.classList.remove('active');
+}
+
+/**
+ * Toggle Action Dropdown Menu for 3-Dots (...) Button
+ */
+function toggleActionMenu(event, id) {
+    event.stopPropagation();
+
+    // Close all other active action menus
+    document.querySelectorAll('.action-menu.show').forEach(menu => {
+        if (menu.id !== `action-menu-${id}`) {
+            menu.classList.remove('show');
+        }
+    });
+
+    const menu = document.getElementById(`action-menu-${id}`);
+    if (menu) {
+        menu.classList.toggle('show');
+    }
+}
+
+/**
+ * Trigger Update Action from Dropdown Menu
+ */
+function triggerUpdate(id, encodedTitle, amount, currency, type, encodedCategory, date) {
+    document.querySelectorAll('.action-menu.show').forEach(menu => menu.classList.remove('show'));
+
+    const title = decodeURIComponent(encodedTitle);
+    const category = decodeURIComponent(encodedCategory);
+
+    openEditTransactionModal(id, title, amount, currency, type, category, date);
+}
+
+/**
+ * Trigger Delete Action from Dropdown Menu (With Alert Confirmation)
+ */
+function triggerDelete(id) {
+    document.querySelectorAll('.action-menu.show').forEach(menu => menu.classList.remove('show'));
+
+    softDeleteTransaction(id);
 }
 
 /**
@@ -530,6 +583,9 @@ async function loadTransactionsTable(page = 1) {
     }
 }
 
+/**
+ * Render Transaction Table Rows with 3-Dots (...) Action Dropdown Menu
+ */
 function renderTableRows(data) {
     const tbody = document.getElementById('transaction-table-body');
     if (!tbody) return;
@@ -548,11 +604,11 @@ function renderTableRows(data) {
         const escapedTitle = encodeURIComponent(row.description || '');
         const escapedCategory = encodeURIComponent(row.category || '');
         const rawAmt = row.raw_amount || parseFloat(row.amount) || 0;
-        const rawCurr = row.raw_currency || 'USD';
+        const rawCurr = row.raw_currency || (row.amount.includes('$') ? 'USD' : 'KHR');
         const rawDate = row.raw_date || row.date;
 
         return `
-            <tr>
+            <tr data-type="${typeStr}">
                 <td data-label="កាលបរិច្ឆេទ">${row.date}</td>
                 <td data-label="បរិយាយ"><strong>${row.description}</strong></td>
                 <td data-label="អ្នកបន្ថែម">${row.creator || 'User'}</td>
@@ -560,9 +616,16 @@ function renderTableRows(data) {
                 <td data-label="ចំនួនទឹកប្រាក់" style="font-weight: bold; color: ${typeColor};">${row.amount}</td>
                 <td data-label="វិក្កយបត្រ">${receiptBadge}</td>
                 <td data-label="សកម្មភាព" style="text-align: center;">
-                    <div style="display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;">
-                        <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem; background: #2563eb; color: white; border: none; border-radius: 4px; cursor: pointer;" onclick="openEditTransactionModal(${row.id}, '${escapedTitle}', ${rawAmt}, '${rawCurr}', '${typeStr}', '${escapedCategory}', '${rawDate}')">✏️ កែប្រែ</button>
-                        <button class="btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer;" onclick="softDeleteTransaction(${row.id})">🗑️ លុប</button>
+                    <div class="action-dropdown">
+                        <button class="action-dots-btn" aria-label="More actions" onclick="toggleActionMenu(event, ${row.id})">⋮</button>
+                        <div class="action-menu" id="action-menu-${row.id}">
+                            <button class="action-menu-item update-btn" onclick="triggerUpdate(${row.id}, '${escapedTitle}', ${rawAmt}, '${rawCurr}', '${typeStr}', '${escapedCategory}', '${rawDate}')">
+                                ✏️ កែប្រែ (Update)
+                            </button>
+                            <button class="action-menu-item delete-btn" onclick="triggerDelete(${row.id})">
+                                🗑️ លុប (Delete)
+                            </button>
+                        </div>
                     </div>
                 </td>
             </tr>
@@ -586,10 +649,12 @@ function renderPaginationControls(pagination) {
 }
 
 /**
- * Soft Delete Transaction
+ * Soft Delete Transaction with Alert Confirmation Dialog
  */
 async function softDeleteTransaction(id) {
-    if (!confirm('តើអ្នកពិតជាចង់លុបប្រតិបត្តិការនេះមែនទេ?')) return;
+    if (!confirm('តើអ្នកពិតជាចង់លុបប្រតិបត្តិការនេះមែនទេ? (Are you sure you want to delete this transaction?)')) {
+        return;
+    }
 
     try {
         const response = await fetch(API_TRANSACTIONS_URL, {

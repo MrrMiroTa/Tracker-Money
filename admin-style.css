@@ -1,8 +1,7 @@
-/* admin-style-v7.css - Ultra-Modern Financial SaaS CSS Stylesheet for Khmer Payment Tracker */
+/* admin-style-v8.css - Production CSS Stylesheet with 3-Dots Action Dropdown Menu */
 @import url('https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-    /* Refined Fintech Color Palette */t
     --primary: #4f46e5;         /* Indigo / Modern Blue */
     --primary-dark: #4338ca;
     --primary-light: #eef2ff;
@@ -15,12 +14,11 @@
     --danger-light: #fff1f2;
     --danger-text: #be123c;
     --dark: #0f172a;            /* Slate Dark */
-    --gray-bg: #f8fafc;         /* Ultra Clean Soft Gray */
+    --gray-bg: #f8fafc;         /* Soft Gray Background */
     --gray-border: #e2e8f0;
     --gray-text: #64748b;
     --white: #ffffff;
     
-    /* Typography & Radii */
     --font-khmer: 'Kantumruy Pro', 'Inter', system-ui, -apple-system, sans-serif;
     --radius-xl: 16px;
     --radius-lg: 12px;
@@ -28,7 +26,6 @@
     --radius-sm: 6px;
     --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     
-    /* Modern Multi-Layer Elevation Shadows */
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     --shadow-card: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
     --shadow-hover: 0 12px 28px -4px rgba(0, 0, 0, 0.09), 0 4px 12px -2px rgba(0, 0, 0, 0.04);
@@ -56,7 +53,7 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
-/* Glassmorphic & Deep Slate Navbar Header */
+/* Glassmorphic Navbar */
 .navbar {
     background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
     color: var(--white);
@@ -78,10 +75,6 @@ body {
     align-items: center;
     gap: 0.6rem;
     letter-spacing: -0.01em;
-}
-
-.navbar-brand span {
-    filter: drop-shadow(0 2px 8px rgba(99, 102, 241, 0.4));
 }
 
 .navbar-toggle {
@@ -140,7 +133,7 @@ body {
     transform: translateY(-1px) !important;
 }
 
-/* Dashboard Main Layout Container */
+/* Container */
 .dashboard-container {
     max-width: 1240px;
     margin: 2rem auto;
@@ -167,26 +160,12 @@ body {
     font-size: 1.75rem;
     color: var(--dark);
     font-weight: 800;
-    letter-spacing: -0.02em;
 }
 
 .welcome-banner p {
     margin: 0.35rem 0 0 0;
     color: var(--gray-text);
     font-size: 0.95rem;
-}
-
-.role-badge-pill {
-    display: inline-flex;
-    align-items: center;
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    background: var(--primary-light);
-    color: var(--primary);
-    border: 1px solid rgba(79, 70, 229, 0.2);
 }
 
 /* 1. Unified Exchange Rate Banner Widget */
@@ -205,17 +184,6 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.1);
     position: relative;
     overflow: hidden;
-}
-
-.exchange-rate-widget::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    right: -20%;
-    width: 300px;
-    height: 300px;
-    background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, transparent 70%);
-    pointer-events: none;
 }
 
 .exchange-rate-inputs {
@@ -261,10 +229,9 @@ body {
     font-weight: 800;
     font-size: 1.1rem;
     backdrop-filter: blur(8px);
-    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.2);
 }
 
-/* 2. Metrics Cards Grid (Individual Currency Cards) */
+/* 2. Metrics Cards Grid */
 .metrics-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -286,49 +253,7 @@ body {
 .metric-card:hover {
     transform: translateY(-4px);
     box-shadow: var(--shadow-hover);
-    border-color: #cbd5e1;
 }
-
-.metric-card::top-bar {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 4px;
-}
-
-.metric-card-balance { border-top: 4px solid var(--primary); }
-.metric-card-income { border-top: 4px solid var(--success); }
-.metric-card-expense { border-top: 4px solid var(--danger); }
-
-.metric-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 1.25rem;
-}
-
-.metric-header h3 {
-    margin: 0;
-    font-size: 1.05rem;
-    font-weight: 700;
-    color: var(--dark);
-}
-
-.metric-icon-box {
-    width: 44px;
-    height: 44px;
-    border-radius: var(--radius-md);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.35rem;
-}
-
-.icon-balance { background: var(--primary-light); color: var(--primary); }
-.icon-income { background: var(--success-light); color: var(--success); }
-.icon-expense { background: var(--danger-light); color: var(--danger); }
 
 .currency-row {
     display: flex;
@@ -340,7 +265,6 @@ body {
 
 .currency-row:last-child {
     border-bottom: none;
-    padding-bottom: 0;
 }
 
 .currency-label {
@@ -354,7 +278,7 @@ body {
     font-weight: 800;
 }
 
-/* 3. Category Budget Threshold Alerts */
+/* 3. Budget Alerts Container */
 .budget-alerts-container {
     margin-bottom: 1.5rem;
     display: flex;
@@ -440,34 +364,7 @@ body {
     width: 100%;
 }
 
-/* 5. Administrative Control Bar */
-.admin-control-bar {
-    display: flex;
-    gap: 0.85rem;
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
-    background-color: var(--white);
-    padding: 1.25rem 1.5rem;
-    border-radius: var(--radius-xl);
-    border: 1px solid var(--gray-border);
-    box-shadow: var(--shadow-card);
-    align-items: center;
-}
-
-.admin-control-bar .btn {
-    border-radius: var(--radius-md);
-    padding: 0.6rem 1.25rem;
-    font-size: 0.9rem;
-    font-weight: 700;
-    box-shadow: var(--shadow-sm);
-}
-
-.admin-control-bar .btn:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-card);
-}
-
-/* 6. Main Layout Grid (Form & Table) */
+/* 5. Main Layout Grid */
 .main-content-grid {
     display: grid;
     grid-template-columns: 1fr;
@@ -564,7 +461,7 @@ body {
     transform: translateY(-2px);
 }
 
-/* 7. Date Range Filter Bar */
+/* Date Range Filter Bar */
 .date-range-bar {
     display: flex;
     align-items: center;
@@ -593,11 +490,7 @@ body {
     outline: none;
 }
 
-.date-range-bar input[type="date"]:focus {
-    border-color: var(--primary);
-}
-
-/* Table Responsive Styles */
+/* Table Styles */
 .table-responsive {
     width: 100%;
     overflow-x: auto;
@@ -637,18 +530,96 @@ body {
     background-color: #f1f5f9;
 }
 
-/* Status & Type Pills */
-.type-badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 0.82rem;
-    font-weight: 700;
+/* --- 6. ACTION DROPDOWN MENU STYLING FOR 3-DOTS BUTTON --- */
+.action-dropdown {
+    position: relative;
+    display: inline-block;
 }
 
-.type-income { background: var(--success-light); color: var(--success-text); }
-.type-expense { background: var(--danger-light); color: var(--danger-text); }
+.action-dots-btn {
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    color: #1e293b;
+    font-size: 1.25rem;
+    line-height: 1;
+    font-weight: bold;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.action-dots-btn:hover, .action-dots-btn:focus {
+    background: var(--primary);
+    color: #ffffff;
+    border-color: var(--primary-dark);
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35);
+}
+
+.action-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    margin-top: 6px;
+    background: #ffffff;
+    min-width: 160px;
+    box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.15), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e2e8f0;
+    border-radius: var(--radius-md);
+    z-index: 1000;
+    overflow: hidden;
+    animation: fadeInDropdown 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.action-menu.show {
+    display: block;
+}
+
+@keyframes fadeInDropdown {
+    from { opacity: 0; transform: translateY(-8px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.action-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 14px;
+    font-family: var(--font-khmer);
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #334155;
+    background: transparent;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.action-menu-item.update-btn {
+    color: #2563eb;
+}
+
+.action-menu-item.update-btn:hover {
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.action-menu-item.delete-btn {
+    color: #ef4444;
+}
+
+.action-menu-item.delete-btn:hover {
+    background: #fef2f2;
+    color: #dc2626;
+}
 
 /* Modal Engine */
 .modal-backdrop {
@@ -768,14 +739,6 @@ body {
         padding: 0.75rem 1.25rem !important;
     }
     
-    .transaction-table tr[data-type="income"] {
-        border-left-color: var(--success) !important;
-    }
-
-    .transaction-table tr[data-type="expense"] {
-        border-left-color: var(--danger) !important;
-    }
-
     .transaction-table td { 
         border: none !important;
         border-bottom: 1px dashed #f1f5f9 !important; 
@@ -790,8 +753,8 @@ body {
     
     .transaction-table td:last-child {
         border-bottom: 0 !important;
-        justify-content: center !important;
-        padding-top: 14px !important;
+        justify-content: flex-end !important;
+        padding-top: 12px !important;
     }
     
     .transaction-table td::before { 
