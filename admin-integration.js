@@ -1,17 +1,17 @@
 /**
- * admin-integration.js - Production JavaScript Engine (v20)
+ * admin-integration-v22.js - Complete Production JavaScript Engine
  * Part of the Khmer Payment Tracker and Financial Management System
  * 
  * Features:
- * - Ultra-Responsive Mobile Layout Handling
- * - Dark Mode Toggle & LocalStorage Memory
- * - 3-Dots Action Dropdown Menu for Transaction Table
- * - Real-time Chart.js Analytics (Income vs Expense Bar Chart, Category Doughnut Chart)
+ * - Ultra-responsive Chart.js Analytics with Doughnut Center-Text Overlay
+ * - Daily Spending Limit Enforcement ($5 / 20,000 KHR Alert Warning)
  * - Exchange Rate Converter ($1 USD = X KHR) & Unified Total Balance Calculation
- * - Category Budget Tracking & Threshold Warning Banners
+ * - Category Budget Tracking & Threshold Warnings (>80% and Exceeded)
  * - Advanced Date Range Filtering (From Date - To Date)
  * - Audit Log Viewer for Admins
  * - Optional Receipt File Upload Handling
+ * - 3-Dots (...) Action Dropdown Menu with Update Modal and Alert Confirm Delete
+ * - Dark Mode Toggle with Persistence
  */
 
 const API_BASE_URL = 'api-v2.php';
@@ -35,21 +35,18 @@ const categoryBudgets = {
     'Dinner': 60
 };
 
+// Global Store for Cached Transactions
+let cachedTransactionsList = [];
+
 document.addEventListener('DOMContentLoaded', () => {
     initApp();
-});
-
-// Close open action menus when clicking outside
-document.addEventListener('click', (e) => {
-    if (!e.target.closest('.action-dropdown')) {
-        document.querySelectorAll('.action-menu.show').forEach(menu => menu.classList.remove('show'));
-    }
 });
 
 /**
  * Initialize Application Engine
  */
 function initApp() {
+    initThemeState();
     setupNavigation();
     setupExchangeRateWidget();
     setupDateFilterListeners();
@@ -57,31 +54,32 @@ function initApp() {
     setupEditTransactionForm();
     loadDashboardMetricsAndCharts();
     loadTransactionsTable(1);
-    initDarkModeState();
 }
 
 /**
  * Dark Mode Theme Initializer & Toggle
  */
-function initDarkModeState() {
+function initThemeState() {
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'dark') {
         document.body.classList.add('dark-mode');
-        updateDarkModeBtnText(true);
+        updateToggleButton(true);
     }
 }
 
 function toggleTheme() {
     const isDark = document.body.classList.toggle('dark-mode');
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
-    updateDarkModeBtnText(isDark);
-    showToast(isDark ? '🌙 បានផ្លាស់ប្តូរទៅជា Dark Mode' : '☀️ បានផ្លាស់ប្តូរទៅជា Light Mode', 'info');
+    updateToggleButton(isDark);
     
-    // Refresh chart text colors if loaded
-    loadDashboardMetricsAndCharts();
+    // Re-render charts with updated text colors
+    if (cachedTransactionsList.length > 0) {
+        renderAnalyticsCharts(cachedTransactionsList);
+    }
+    showToast(isDark ? '🌙 បានផ្លាស់ប្តូរទៅជា Dark Mode' : '☀️ បានផ្លាស់ប្តូរទៅជា Light Mode', 'info');
 }
 
-function updateDarkModeBtnText(isDark) {
+function updateToggleButton(isDark) {
     const btn = document.getElementById('dark-mode-toggle');
     if (btn) {
         btn.innerHTML = isDark ? '☀️ Light Mode' : '🌙 Dark Mode';
@@ -101,6 +99,15 @@ function setupNavigation() {
             menu.classList.toggle('active');
         });
     }
+
+    // Close action dropdown menus when clicking anywhere outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.action-dropdown')) {
+            document.querySelectorAll('.action-menu.show').forEach(menu => {
+                menu.classList.remove('show');
+            });
+        }
+    });
 }
 
 /**
@@ -139,6 +146,81 @@ function setupDateFilterListeners() {
 }
 
 /**
+ * Helper: Read Daily Spending Limit Settings from localStorage
+ */
+function getDailySpendingLimit() {
+    const defaultSettings = { enabled: true, usd: 5.00, khr: 20000 };
+    try {
+        const stored = localStorage.getItem('daily_spending_limit');
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            return {
+                enabled: parsed.enabled !== false,
+                usd: parseFloat(parsed.usd) || 5.00,
+                khr: parseFloat(parsed.khr) || 20000
+            };
+        }
+    } catch (e) {
+        console.error("Error reading daily_spending_limit:", e);
+    }
+    return defaultSettings;
+}
+
+/**
+ * Helper: Check if adding an expense exceeds Daily Spending Limit
+ */
+function checkDailySpendingLimitWarning(newAmount, currency, targetDateStr) {
+    const limitSettings = getDailySpendingLimit();
+    if (!limitSettings.enabled) return true; // Warning disabled by user
+
+    const limitUSD = limitSettings.usd || (limitSettings.khr / currentUsdKhrRate);
+    const limitKHR = limitSettings.khr || (limitSettings.usd * currentUsdKhrRate);
+
+    // Convert new transaction amount to USD
+    const newAmountUSD = (currency === 'USD') ? newAmount : (newAmount / currentUsdKhrRate);
+
+    // Determine target date Y-m-d
+    let targetYMD = targetDateStr ? targetDateStr.substring(0, 10) : new Date().toISOString().substring(0, 10);
+
+    // Sum existing expenses for that target date from cached transactions
+    let existingDateExpenseUSD = 0;
+    cachedTransactionsList.forEach(t => {
+        if (!t.is_deleted) {
+            const tType = (t.raw_type || t.type || '').toLowerCase();
+            if (tType === 'expense') {
+                const tDateStr = (t.raw_date || t.date || '').substring(0, 10);
+                if (tDateStr === targetYMD) {
+                    const amt = parseFloat(t.raw_amount || t.amount) || 0;
+                    const curr = (t.raw_currency || t.currency || '').toUpperCase();
+                    const amtUSD = (curr === 'USD') ? amt : (amt / currentUsdKhrRate);
+                    existingDateExpenseUSD += amtUSD;
+                }
+            }
+        }
+    });
+
+    const totalProjectedUSD = existingDateExpenseUSD + newAmountUSD;
+    const totalProjectedKHR = Math.round(totalProjectedUSD * currentUsdKhrRate);
+
+    // If total exceeds daily limit, prompt warning alert confirm!
+    if (totalProjectedUSD > limitUSD) {
+        const warningMsg = `🚨 ព្រមាន៖ ការចំណាយប្រចាំថ្ងៃរបស់អ្នកនឹងលើសពីកម្រិតកំណត់!
+
+` +
+            `• កម្រិតកំណត់ប្រចាំថ្ងៃ៖ $${limitUSD.toFixed(2)} (${Math.round(limitKHR).toLocaleString()} ៛)
+` +
+            `• ការចំណាយសរុបប្រចាំថ្ងៃនឹងកើនដល់៖ $${totalProjectedUSD.toFixed(2)} (${totalProjectedKHR.toLocaleString()} ៛)
+
+` +
+            `តើអ្នកពិតជាចង់រក្សាទុកប្រតិបត្តិការចំណាយនេះដែរឬទេ?`;
+        
+        return confirm(warningMsg);
+    }
+
+    return true;
+}
+
+/**
  * Setup Form Submission Handler for Adding New Transactions
  */
 function setupTransactionForm() {
@@ -173,6 +255,12 @@ function setupTransactionForm() {
         if (!title || isNaN(amount) || amount <= 0 || !currency || !type || !category) {
             showToast('សូមបំពេញព័ត៌មានឱ្យបានត្រឹមត្រូវ និងគ្រប់គ្រាន់ (ទឹកប្រាក់ត្រូវតែធំជាង ០)!', 'error');
             return;
+        }
+
+        // Daily Limit Expense Check
+        if (type === 'expense') {
+            const proceed = checkDailySpendingLimitWarning(amount, currency, date);
+            if (!proceed) return; // User cancelled due to daily limit warning
         }
 
         const submitBtn = form.querySelector('button[type="submit"]');
@@ -255,6 +343,12 @@ function setupEditTransactionForm() {
             return;
         }
 
+        // Daily Limit Expense Check
+        if (type === 'expense') {
+            const proceed = checkDailySpendingLimitWarning(amount, currency, date);
+            if (!proceed) return;
+        }
+
         try {
             const formData = new FormData();
             formData.append('transaction_id', id);
@@ -292,7 +386,7 @@ function setupEditTransactionForm() {
 }
 
 /**
- * Open Edit Transaction Modal Window
+ * Open Edit Transaction Modal
  */
 function openEditTransactionModal(id, title, amount, currency, type, category, date) {
     let modal = document.getElementById('edit-transaction-modal');
@@ -369,6 +463,7 @@ async function loadDashboardMetricsAndCharts() {
         const result = await response.json();
         if (result.status === 'success' && Array.isArray(result.data)) {
             const transactions = result.data.filter(t => !t.is_deleted);
+            cachedTransactionsList = transactions;
             
             calculateMetricsAndUnifiedBalance(transactions);
             checkCategoryBudgetAlerts(transactions);
@@ -424,7 +519,7 @@ function updateMetricElement(id, text) {
 }
 
 /**
- * Check Category Budgets and render warning banners if >80% or exceeded
+ * Check Category Budgets & Daily Limits to render warning banners
  */
 function checkCategoryBudgetAlerts(transactions) {
     const container = document.getElementById('budget-alerts-container');
@@ -432,12 +527,58 @@ function checkCategoryBudgetAlerts(transactions) {
 
     container.innerHTML = '';
 
+    // 1. Check Today's Daily Spending Limit
+    const limitSettings = getDailySpendingLimit();
+    if (limitSettings.enabled) {
+        const limitUSD = limitSettings.usd || (limitSettings.khr / currentUsdKhrRate);
+        const limitKHR = limitSettings.khr || (limitSettings.usd * currentUsdKhrRate);
+
+        const todayYMD = new Date().toISOString().substring(0, 10);
+        let todayExpenseUSD = 0;
+
+        transactions.forEach(t => {
+            const type = (t.raw_type || t.type || '').toLowerCase();
+            if (type === 'expense') {
+                const tDateStr = (t.raw_date || t.date || '').substring(0, 10);
+                if (tDateStr === todayYMD) {
+                    const amt = parseFloat(t.raw_amount || t.amount) || 0;
+                    const curr = (t.raw_currency || t.currency || '').toUpperCase();
+                    const amtUsd = (curr === 'USD') ? amt : (amt / currentUsdKhrRate);
+                    todayExpenseUSD += amtUsd;
+                }
+            }
+        });
+
+        if (todayExpenseUSD > 0) {
+            const pct = (todayExpenseUSD / limitUSD) * 100;
+            if (pct >= 80) {
+                const isExceeded = pct >= 100;
+                const alertCard = document.createElement('div');
+                alertCard.className = `budget-alert-card ${isExceeded ? 'exceeded' : ''}`;
+
+                alertCard.innerHTML = `
+                    <div style="flex: 1;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                            <span>${isExceeded ? '🚨 លើសកម្រិតចំណាយប្រចាំថ្ងៃ' : '⚠️ ជិតដល់កម្រិតចំណាយប្រចាំថ្ងៃ'}: <strong>$${todayExpenseUSD.toFixed(2)}</strong> / $${limitUSD.toFixed(2)} (${Math.round(limitKHR).toLocaleString()} ៛)</span>
+                            <span><strong>${pct.toFixed(0)}%</strong></span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill ${isExceeded ? 'exceeded' : ''}" style="width: ${Math.min(pct, 100)}%;"></div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(alertCard);
+            }
+        }
+    }
+
+    // 2. Aggregate monthly expense totals per category in USD
     const categoryTotalsUSD = {};
 
     transactions.forEach(t => {
         const type = (t.raw_type || t.type || '').toLowerCase();
         if (type === 'expense') {
-            const cat = (t.category || '').trim();
+            const cat = (t.category || '').trim() || 'ផ្សេងៗ';
             const amt = parseFloat(t.raw_amount || t.amount) || 0;
             const curr = (t.raw_currency || t.currency || '').toUpperCase();
             const amtUsd = (curr === 'USD') ? amt : (amt / currentUsdKhrRate);
@@ -446,7 +587,7 @@ function checkCategoryBudgetAlerts(transactions) {
         }
     });
 
-    let hasAlerts = false;
+    let hasAlerts = container.children.length > 0;
 
     for (const [cat, limit] of Object.entries(categoryBudgets)) {
         const spent = categoryTotalsUSD[cat] || 0;
@@ -460,7 +601,7 @@ function checkCategoryBudgetAlerts(transactions) {
 
             alertCard.innerHTML = `
                 <div style="flex: 1;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
                         <span>${isExceeded ? '🚨 លើសកម្រិតថវិកា' : '⚠️ ជិតដល់កម្រិតថវិកា'} (${cat}): <strong>$${spent.toFixed(2)}</strong> / $${limit.toFixed(2)}</span>
                         <span><strong>${percentage.toFixed(0)}%</strong></span>
                     </div>
@@ -543,7 +684,7 @@ function renderIncomeVsExpenseChart(transactions) {
                         label: function(context) {
                             const valUsd = parseFloat(context.raw) || 0;
                             const valKhr = Math.round(valUsd * currentUsdKhrRate);
-                            return ` $${valUsd.toLocaleString(undefined, {minimumFractionDigits: 2})} USD (${valKhr.toLocaleString()} ៛)`;
+                            return ` ទឹកប្រាក់៖ $${valUsd.toFixed(2)} (${valKhr.toLocaleString()} ៛)`;
                         }
                     }
                 }
@@ -551,17 +692,14 @@ function renderIncomeVsExpenseChart(transactions) {
             scales: {
                 x: {
                     grid: { display: false },
-                    ticks: {
-                        color: textColor,
-                        font: { family: "'Kantumruy Pro', sans-serif", size: isMobile ? 11 : 12, weight: '600' }
-                    }
+                    ticks: { color: textColor, font: { family: "'Kantumruy Pro', sans-serif", size: isMobile ? 11 : 13, weight: 'bold' } }
                 },
                 y: {
                     beginAtZero: true,
                     grid: { color: gridColor },
                     ticks: {
                         color: textColor,
-                        font: { family: "sans-serif", size: isMobile ? 10 : 11 },
+                        font: { family: "'Kantumruy Pro', sans-serif", size: 11 },
                         callback: function(v) { return '$' + v; }
                     }
                 }
@@ -598,9 +736,39 @@ function renderCategoryDoughnutChart(transactions) {
 
     const isDarkMode = document.body.classList.contains('dark-mode');
     const textColor = isDarkMode ? '#f8fafc' : '#1e293b';
-    const isMobile = window.innerWidth < 480;
+    const isMobile = window.innerWidth < 600;
 
-    // Handle Empty Case gracefully
+    // Custom Center Text Plugin
+    const centerTextPlugin = {
+        id: 'centerText',
+        beforeDraw: function(chart) {
+            if (!chart.chartArea) return;
+            const { width, height, ctx } = chart;
+            ctx.save();
+            const fontSize = isMobile ? 13 : 15;
+            ctx.font = `bold ${fontSize}px 'Kantumruy Pro', sans-serif`;
+            ctx.textBaseline = 'middle';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = textColor;
+
+            const totalText = totalExpenseUSD > 0 ? `$${totalExpenseUSD.toFixed(2)}` : '$0.00';
+            const labelText = 'ចំណាយសរុប';
+
+            const centerX = (chart.chartArea.left + chart.chartArea.right) / 2;
+            const centerY = (chart.chartArea.top + chart.chartArea.bottom) / 2;
+
+            ctx.font = `bold ${fontSize + 2}px 'Kantumruy Pro', sans-serif`;
+            ctx.fillText(totalText, centerX, centerY - 6);
+
+            ctx.font = `500 ${fontSize - 2}px 'Kantumruy Pro', sans-serif`;
+            ctx.fillStyle = isDarkMode ? '#94a3b8' : '#64748b';
+            ctx.fillText(labelText, centerX, centerY + 14);
+
+            ctx.restore();
+        }
+    };
+
+    // Handle Empty Case
     if (labels.length === 0 || totalExpenseUSD === 0) {
         const ctx = canvas.getContext('2d');
         categoryDoughnutChart = new Chart(ctx, {
@@ -613,10 +781,11 @@ function renderCategoryDoughnutChart(transactions) {
                     borderWidth: 0
                 }]
             },
+            plugins: [centerTextPlugin],
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                cutout: '72%',
+                cutout: '68%',
                 plugins: {
                     legend: {
                         position: 'bottom',
@@ -624,7 +793,7 @@ function renderCategoryDoughnutChart(transactions) {
                             color: textColor,
                             usePointStyle: true,
                             pointStyle: 'circle',
-                            font: { family: "'Kantumruy Pro', sans-serif", size: 11 }
+                            font: { family: "'Kantumruy Pro', sans-serif", size: 10 }
                         }
                     },
                     tooltip: { enabled: false }
@@ -642,10 +811,11 @@ function renderCategoryDoughnutChart(transactions) {
             datasets: [{
                 data: dataValues,
                 backgroundColor: colors.slice(0, labels.length),
-                borderWidth: 2,
+                borderWidth: isDarkMode ? 2 : 1,
                 borderColor: isDarkMode ? '#1e293b' : '#ffffff'
             }]
         },
+        plugins: [centerTextPlugin],
         options: {
             responsive: true,
             maintainAspectRatio: false,
@@ -658,29 +828,22 @@ function renderCategoryDoughnutChart(transactions) {
                         usePointStyle: true,
                         pointStyle: 'circle',
                         boxWidth: 8,
-                        boxHeight: 8,
-                        padding: isMobile ? 8 : 12,
-                        font: {
-                            family: "'Kantumruy Pro', sans-serif",
-                            size: isMobile ? 10 : 12
-                        }
+                        padding: isMobile ? 6 : 10,
+                        font: { family: "'Kantumruy Pro', sans-serif", size: isMobile ? 10 : 11 }
                     }
                 },
                 tooltip: {
-                    enabled: true,
                     backgroundColor: isDarkMode ? '#1e293b' : '#0f172a',
                     titleColor: '#ffffff',
                     bodyColor: '#ffffff',
                     padding: 10,
                     cornerRadius: 8,
-                    titleFont: { family: "'Kantumruy Pro', sans-serif", size: 13, weight: 'bold' },
-                    bodyFont: { family: "'Kantumruy Pro', sans-serif", size: 12 },
                     callbacks: {
                         label: function(context) {
-                            const catName = context.label || '';
                             const valUsd = parseFloat(context.raw) || 0;
                             const pct = totalExpenseUSD > 0 ? ((valUsd / totalExpenseUSD) * 100).toFixed(1) : 0;
-                            return ` ${catName}: $${valUsd.toLocaleString(undefined, {minimumFractionDigits: 2})} (${pct}%)`;
+                            const valKhr = Math.round(valUsd * currentUsdKhrRate);
+                            return ` ${context.label}: $${valUsd.toFixed(2)} (${valKhr.toLocaleString()} ៛) - ${pct}%`;
                         }
                     }
                 }
@@ -723,6 +886,9 @@ async function loadTransactionsTable(page = 1) {
     }
 }
 
+/**
+ * Render Transaction Table Rows with 3-Dots (...) Action Dropdown Menu
+ */
 function renderTableRows(data) {
     const tbody = document.getElementById('transaction-table-body');
     if (!tbody) return;
@@ -747,7 +913,7 @@ function renderTableRows(data) {
         return `
             <tr data-type="${typeStr}">
                 <td data-label="កាលបរិច្ឆេទ">${row.date}</td>
-                <td data-label="បរិយាយ"><strong style="color: var(--dark);">${row.description}</strong></td>
+                <td data-label="បរិយាយ"><strong>${row.description}</strong></td>
                 <td data-label="អ្នកបន្ថែម">${row.creator || 'User'}</td>
                 <td data-label="ប្រភេទ"><span style="color: ${typeColor}; font-weight: bold;">${typeText} (${row.category})</span></td>
                 <td data-label="ចំនួនទឹកប្រាក់" style="font-weight: bold; color: ${typeColor};">${row.amount}</td>
@@ -775,7 +941,7 @@ function renderPaginationControls(pagination) {
     if (!container || !pagination) return;
 
     container.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--gray-border); font-size: 0.88rem; flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0; font-size: 0.88rem;">
             <span>ទំព័រទី <strong>${pagination.current_page}</strong> នៃ <strong>${pagination.total_pages}</strong> (សរុប ${pagination.total_records} ប្រតិបត្តិការ)</span>
             <div style="display: flex; gap: 6px;">
                 <button class="btn btn-secondary" style="padding: 4px 12px; font-size: 0.85rem;" ${pagination.current_page <= 1 ? 'disabled' : ''} onclick="loadTransactionsTable(${pagination.current_page - 1})">← មុន</button>
@@ -834,9 +1000,9 @@ async function openAuditLogModal() {
                 <tr>
                     <td style="padding: 10px; font-size: 0.85rem;">${log.created_at}</td>
                     <td style="padding: 10px; font-weight: 600;">👤 ${log.username || 'System'}</td>
-                    <td style="padding: 10px;"><span style="background: var(--primary-light); color: var(--primary); padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;">${log.action}</span></td>
-                    <td style="padding: 10px; font-size: 0.85rem; color: var(--gray-text);">${log.details || '-'}</td>
-                    <td style="padding: 10px; font-size: 0.85rem; color: var(--gray-text);">${log.ip_address}</td>
+                    <td style="padding: 10px;"><span style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;">${log.action}</span></td>
+                    <td style="padding: 10px; font-size: 0.85rem; color: #4b5563;">${log.details || '-'}</td>
+                    <td style="padding: 10px; font-size: 0.85rem; color: #6b7280;">${log.ip_address}</td>
                 </tr>
             `).join('');
         } else {

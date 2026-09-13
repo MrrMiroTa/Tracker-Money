@@ -1,6 +1,6 @@
 <?php
 /**
- * index.php - Complete Production Financial Dashboard (v22.0)
+ * index.php - Complete Production Financial Dashboard (v23.0)
  * Part of the Khmer Payment Tracker and Financial Management System
  * 
  * Features:
@@ -37,7 +37,7 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ប្រព័ន្ធគ្រប់គ្រងហិរញ្ញវត្ថុ - Production Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@300;400;600;700;800&family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="admin-style.css?v=22.0">
+    <link rel="stylesheet" href="admin-style.css?v=23.0">
     <!-- Chart.js Engine for Visual Analytics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
@@ -382,6 +382,6 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
         </div>
     </div>
 
-    <script src="admin-integration.js?v=22.0"></script>
+    <script src="admin-integration.js?v=23.0"></script>
 </body>
 </html>
