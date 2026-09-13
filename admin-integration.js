@@ -103,6 +103,23 @@ function setupNavigation() {
     }
 }
 
+
+/**
+ * Logout User Function (Destroys PHP session & redirects to login.php)
+ */
+async function logoutUser() {
+    try {
+        await fetch(`${API_BASE_URL}?action=logout`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+    } catch (error) {
+        console.error('Logout failed, forcing client-side logout:', error);
+    } finally {
+        localStorage.removeItem('current_user');
+        window.location.href = 'login.php';
+    }
+}
 /**
  * Setup Exchange Rate Converter Widget
  */
