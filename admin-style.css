@@ -1,11 +1,11 @@
-/* admin-style-v8.css - Production CSS Stylesheet with 3-Dots Action Dropdown Menu */
+/* admin-style.css - Ultra-Polished Mobile-Responsive Fintech Stylesheet */
 @import url('https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 :root {
     --primary: #4f46e5;         /* Indigo / Modern Blue */
     --primary-dark: #4338ca;
     --primary-light: #eef2ff;
-    --success: #059669;         /* Vibrant Emerald Green */
+    --success: #059669;         /* Emerald Green */
     --success-light: #ecfdf5;
     --success-text: #047857;
     --warning: #d97706;         /* Amber Alert */
@@ -53,6 +53,90 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
+/* --- Dark Mode Palette Styles --- */
+body.dark-mode {
+    --dark: #f8fafc;            /* Bright text color */
+    --gray-bg: #0f172a;         /* Dark Slate background */
+    --gray-border: #334155;     /* Dark card border */
+    --gray-text: #94a3b8;       /* Secondary text */
+    --white: #1e293b;           /* Card Background */
+    background-color: #0f172a !important;
+    color: #f8fafc !important;
+}
+
+body.dark-mode .card,
+body.dark-mode .metric-card,
+body.dark-mode .welcome-banner,
+body.dark-mode .chart-card,
+body.dark-mode .admin-control-bar,
+body.dark-mode .modal-content-card,
+body.dark-mode .action-menu {
+    background-color: #1e293b !important;
+    border-color: #334155 !important;
+    color: #f8fafc !important;
+}
+
+body.dark-mode .welcome-banner h1,
+body.dark-mode .chart-header,
+body.dark-mode .form-title,
+body.dark-mode .metric-header h3 {
+    color: #f8fafc !important;
+}
+
+body.dark-mode .form-group input,
+body.dark-mode .form-group select,
+body.dark-mode .form-control,
+body.dark-mode .date-range-bar,
+body.dark-mode .date-range-bar input[type="date"] {
+    background-color: #0f172a !important;
+    color: #f8fafc !important;
+    border-color: #334155 !important;
+}
+
+body.dark-mode .form-group label,
+body.dark-mode .date-range-bar label {
+    color: #cbd5e1 !important;
+}
+
+body.dark-mode .transaction-table {
+    background-color: #1e293b !important;
+}
+
+body.dark-mode .transaction-table th {
+    background-color: #0f172a !important;
+    color: #cbd5e1 !important;
+    border-bottom-color: #334155 !important;
+}
+
+body.dark-mode .transaction-table td {
+    border-bottom-color: #334155 !important;
+    color: #f8fafc !important;
+}
+
+body.dark-mode .transaction-table tbody tr:hover {
+    background-color: #334155 !important;
+}
+
+body.dark-mode .action-dots-btn {
+    background: #334155 !important;
+    color: #f8fafc !important;
+    border-color: #475569 !important;
+}
+
+body.dark-mode .action-menu-item {
+    color: #e2e8f0 !important;
+}
+
+body.dark-mode .action-menu-item.update-btn:hover {
+    background: #312e81 !important;
+    color: #a5b4fc !important;
+}
+
+body.dark-mode .action-menu-item.delete-btn:hover {
+    background: #4c1d95 !important;
+    color: #fca5a5 !important;
+}
+
 /* Glassmorphic Navbar */
 .navbar {
     background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
@@ -75,6 +159,10 @@ body {
     align-items: center;
     gap: 0.6rem;
     letter-spacing: -0.01em;
+}
+
+.navbar-brand span {
+    filter: drop-shadow(0 2px 8px rgba(99, 102, 241, 0.4));
 }
 
 .navbar-toggle {
@@ -133,7 +221,7 @@ body {
     transform: translateY(-1px) !important;
 }
 
-/* Container */
+/* Dashboard Main Container */
 .dashboard-container {
     max-width: 1240px;
     margin: 2rem auto;
@@ -160,12 +248,26 @@ body {
     font-size: 1.75rem;
     color: var(--dark);
     font-weight: 800;
+    letter-spacing: -0.02em;
 }
 
 .welcome-banner p {
     margin: 0.35rem 0 0 0;
     color: var(--gray-text);
     font-size: 0.95rem;
+}
+
+.role-badge-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    background: var(--primary-light);
+    color: var(--primary);
+    border: 1px solid rgba(79, 70, 229, 0.2);
 }
 
 /* 1. Unified Exchange Rate Banner Widget */
@@ -186,12 +288,24 @@ body {
     overflow: hidden;
 }
 
+.exchange-rate-widget::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -20%;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, transparent 70%);
+    pointer-events: none;
+}
+
 .exchange-rate-inputs {
     display: flex;
     align-items: center;
     gap: 12px;
     font-weight: 600;
     font-size: 0.98rem;
+    flex-wrap: wrap;
 }
 
 .exchange-rate-inputs input {
@@ -229,12 +343,13 @@ body {
     font-weight: 800;
     font-size: 1.1rem;
     backdrop-filter: blur(8px);
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.2);
 }
 
 /* 2. Metrics Cards Grid */
 .metrics-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 1.5rem;
     margin-bottom: 1.5rem;
 }
@@ -253,7 +368,40 @@ body {
 .metric-card:hover {
     transform: translateY(-4px);
     box-shadow: var(--shadow-hover);
+    border-color: #cbd5e1;
 }
+
+.metric-card-balance { border-top: 4px solid var(--primary); }
+.metric-card-income { border-top: 4px solid var(--success); }
+.metric-card-expense { border-top: 4px solid var(--danger); }
+
+.metric-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.25rem;
+}
+
+.metric-header h3 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--dark);
+}
+
+.metric-icon-box {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.35rem;
+}
+
+.icon-balance { background: var(--primary-light); color: var(--primary); }
+.icon-income { background: var(--success-light); color: var(--success); }
+.icon-expense { background: var(--danger-light); color: var(--danger); }
 
 .currency-row {
     display: flex;
@@ -265,6 +413,7 @@ body {
 
 .currency-row:last-child {
     border-bottom: none;
+    padding-bottom: 0;
 }
 
 .currency-label {
@@ -364,7 +513,35 @@ body {
     width: 100%;
 }
 
-/* 5. Main Layout Grid */
+/* 5. Administrative Control Bar */
+.admin-control-bar {
+    display: flex;
+    gap: 0.85rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    background-color: var(--white);
+    padding: 1.25rem 1.5rem;
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--gray-border);
+    box-shadow: var(--shadow-card);
+    align-items: center;
+}
+
+.admin-control-bar .btn {
+    border-radius: var(--radius-md);
+    padding: 0.6rem 1.25rem;
+    font-size: 0.9rem;
+    font-weight: 700;
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition);
+}
+
+.admin-control-bar .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-card);
+}
+
+/* 6. Main Layout Grid */
 .main-content-grid {
     display: grid;
     grid-template-columns: 1fr;
@@ -384,6 +561,7 @@ body {
     border-radius: var(--radius-xl);
     border: 1px solid var(--gray-border);
     box-shadow: var(--shadow-card);
+    overflow: visible !important;
 }
 
 /* Forms & Inputs Styling */
@@ -530,7 +708,7 @@ body {
     background-color: #f1f5f9;
 }
 
-/* --- 6. ACTION DROPDOWN MENU STYLING FOR 3-DOTS BUTTON --- */
+/* ACTION DROPDOWN MENU STYLING FOR 3-DOTS BUTTON */
 .action-dropdown {
     position: relative;
     display: inline-block;
@@ -658,14 +836,20 @@ body {
     to { opacity: 1; transform: scale(1); }
 }
 
-/* Mobile Responsiveness (Screen < 768px) */
+/* ========================================================= */
+/* --- COMPREHENSIVE MOBILE RESPONSIVE FIXES (<768px) --- */
+/* ========================================================= */
 @media (max-width: 768px) {
     body {
         padding: 0;
     }
     
     .navbar {
-        padding: 1rem 1.25rem;
+        padding: 0.85rem 1.25rem;
+    }
+    
+    .navbar-brand {
+        font-size: 1.15rem;
     }
     
     .navbar-toggle {
@@ -690,28 +874,126 @@ body {
         display: flex;
     }
 
-    .navbar-nav a {
+    .navbar-nav a, .navbar-nav button {
         width: 100%;
         padding: 0.8rem 1rem;
         display: block;
         background-color: rgba(255, 255, 255, 0.06);
         border-radius: var(--radius-sm);
+        text-align: left;
+        justify-content: flex-start;
     }
 
     .dashboard-container {
-        padding: 1rem;
+        padding: 0.85rem;
+        margin: 1rem auto;
     }
 
-    .exchange-rate-widget {
+    .welcome-banner {
+        padding: 1.25rem;
         flex-direction: column;
         align-items: flex-start;
+        gap: 0.75rem;
+    }
+
+    .welcome-banner h1 {
+        font-size: 1.35rem;
+    }
+
+    .welcome-banner p {
+        font-size: 0.88rem;
+    }
+
+    /* Fix Exchange Rate Widget on Mobile */
+    .exchange-rate-widget {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 1.25rem;
+        gap: 1rem;
+    }
+
+    .exchange-rate-inputs {
+        flex-direction: row;
+        justify-content: space-between;
+        width: 100%;
+        font-size: 0.9rem;
+    }
+
+    .exchange-rate-inputs input {
+        width: 90px;
+        padding: 6px 8px;
+        font-size: 0.95rem;
+    }
+
+    .unified-balance-display {
+        flex-direction: column;
+        align-items: flex-start;
+        width: 100%;
+        gap: 8px;
+    }
+
+    .unified-badge {
+        width: 100%;
+        text-align: center;
+        padding: 8px 12px;
+        font-size: 1rem;
+    }
+
+    /* Fix Metrics Grid Padding on Mobile */
+    .metrics-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .metric-card {
         padding: 1.25rem;
     }
 
-    /* Convert Tables to Mobile Block Cards with Left Color Borders */
+    /* Fix Admin Control Bar on Mobile */
+    .admin-control-bar {
+        padding: 1.25rem;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+    }
+
+    .admin-control-bar .btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    /* Fix Date Range Filter Bar on Mobile */
+    .date-range-bar {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 1rem;
+        gap: 10px;
+    }
+
+    .date-range-bar label {
+        width: 100%;
+        margin-bottom: 2px;
+    }
+
+    .date-range-bar input[type="date"] {
+        width: 100%;
+    }
+
+    .date-range-bar .btn {
+        width: 100%;
+        margin-top: 4px;
+        padding: 8px;
+    }
+
+    /* Fix Mobile Card View for Transaction Table */
+    .card {
+        padding: 1.25rem 1rem;
+        overflow: visible !important;
+    }
+
     .table-responsive {
         border: none !important;
-        overflow-x: visible !important;
+        overflow: visible !important;
     }
 
     .transaction-table, 
@@ -736,7 +1018,9 @@ body {
         margin-bottom: 1.25rem !important;
         background-color: var(--white) !important;
         box-shadow: var(--shadow-card) !important;
-        padding: 0.75rem 1.25rem !important;
+        padding: 0.75rem 1rem !important;
+        position: relative !important;
+        overflow: visible !important;
     }
     
     .transaction-table td { 
@@ -751,9 +1035,16 @@ body {
         width: 100% !important;
     }
     
+    /* Prevent value text from pushing left label on mobile */
+    .transaction-table td > * {
+        max-width: 65%;
+        word-break: break-word;
+        text-align: right;
+    }
+    
     .transaction-table td:last-child {
         border-bottom: 0 !important;
-        justify-content: flex-end !important;
+        justify-content: space-between !important;
         padding-top: 12px !important;
     }
     
@@ -765,5 +1056,15 @@ body {
         font-size: 0.8rem !important;
         text-transform: uppercase !important;
         letter-spacing: 0.04em !important;
+        flex-shrink: 0;
+        margin-right: 10px;
+    }
+
+    /* Modal Mobile Fixes */
+    .modal-content-card {
+        padding: 1.25rem 1rem !important;
+        width: 95% !important;
+        max-height: 88vh !important;
+        border-radius: var(--radius-lg) !important;
     }
 }

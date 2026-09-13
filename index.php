@@ -1,16 +1,17 @@
 <?php
 /**
- * index.php - Complete Production Financial Dashboard (v15)
+ * index.php - Complete Production Financial Dashboard (v20 - Responsive Polish)
  * Part of the Khmer Payment Tracker and Financial Management System
  * 
  * Features:
+ * - Ultra-responsive Mobile Layout & Mobile Card View
  * - 3-Dots Action Dropdown Menu for Transaction Table
  * - Real-time Chart.js Analytics (Income vs Expense Bar Chart, Category Doughnut Chart)
  * - Exchange Rate Converter ($1 USD = X KHR) & Unified Total Balance Calculation
  * - Category Budget Tracking & Threshold Warning Banners
  * - Advanced Date Range Filtering (From Date - To Date)
  * - Audit Log Viewer for Admins
- * - Mobile-first responsive layout with Hamburger Navigation Toggle
+ * - Dark Mode Switcher with LocalStorage Memory
  */
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -27,19 +28,28 @@ $username = $_SESSION['username'] ?? 'User';
 $role = $_SESSION['role'] ?? 'user';
 
 // Categories list for form datalist
-$categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពាក់', 'ការធ្វើដំណើរ', 'វិក្កយបត្រ', 'ការអប់រំ', 'សុខភាព', 'កម្សាន្ត', 'ផ្សេងៗ'];
+$categories = ['អាហារពេលព្រឹក','អាហារពេលថ្ងៃ','អាហារពេលល្ងាច', 'សម្លៀកបំពាក់', 'ការធ្វើដំណើរ', 'វិក្កយបត្រ', 'ការអប់រំ', 'សុខភាព', 'កម្សាន្ត', 'ផ្សេងៗ'];
 ?>
 <!DOCTYPE html>
 <html lang="km">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ប្រព័ន្ធគ្រប់គ្រងហិរញ្ញវត្ថុ - Production Dashboard</title>
+    <title>ប្រព័ន្ធគ្រប់គ្រងហិរញ្ញវត្ថុ - Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@300;400;600;700;800&family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="admin-style.css?v=17.0">
+    <link rel="stylesheet" href="admin-style.css?v=20.0">
     <link rel="icon" type="image/x-icon" href="icon.png">
     <!-- Chart.js Engine for Visual Analytics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.documentElement.classList.add('dark-mode');
+                document.addEventListener('DOMContentLoaded', () => document.body.classList.add('dark-mode'));
+            }
+        })();
+    </script>
 </head>
 <body>
 
@@ -70,6 +80,10 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
             <?php endif; ?>
             <a href="pdf.php" target="_blank">ទាញយក PDF</a>
             <a href="export-csv.php" target="_blank">នាំចេញ CSV</a>
+            
+            <button id="dark-mode-toggle" onclick="toggleTheme()" class="btn" style="background: rgba(255,255,255,0.15); color: white; border: none; padding: 6px 14px; border-radius: 20px; cursor: pointer; font-size: 0.88rem; display: inline-flex; align-items: center; gap: 6px;">
+                🌙 Dark Mode
+            </button>
             <a href="#" onclick="logoutUser(); return false;" class="logout-btn">ចាកចេញ</a>
         </div>
     </nav>
@@ -254,11 +268,13 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
                 <!-- 7. Advanced Date Range Filter Bar -->
                 <div class="date-range-bar">
                     <label>ស្វែងរកតាមចន្លោះកាលបរិច្ឆេទ៖</label>
-                    <span>ចាប់ពី៖</span>
-                    <input type="date" id="filter-from-date">
-                    <span>ដល់៖</span>
-                    <input type="date" id="filter-to-date">
-                    <button class="btn btn-secondary" style="padding: 6px 14px; font-size: 0.85rem;" onclick="loadTransactionsTable(1)">🔍 ចម្រោះ</button>
+                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; width: 100%;">
+                        <span>ចាប់ពី៖</span>
+                        <input type="date" id="filter-from-date" style="flex: 1; min-width: 120px;">
+                        <span>ដល់៖</span>
+                        <input type="date" id="filter-to-date" style="flex: 1; min-width: 120px;">
+                        <button class="btn btn-secondary" style="padding: 8px 16px; font-size: 0.88rem; background: var(--primary); color: white; border: none; border-radius: 6px;" onclick="loadTransactionsTable(1)">🔍 ចម្រោះ</button>
+                    </div>
                 </div>
 
                 <!-- Responsive Table Wrapper -->
@@ -295,7 +311,7 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
     <div id="edit-transaction-modal" class="modal-backdrop">
         <div class="modal-content-card" style="max-width: 520px;">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.75rem; margin-bottom: 1rem;">
-                <h3 style="margin: 0; color: #1e3a8a;">✏️ កែប្រែប្រតិបត្តិការហិរញ្ញវត្ថុ (Update Transaction)</h3>
+                <h3 style="margin: 0; color: var(--dark);">✏️ កែប្រែប្រតិបត្តិការហិរញ្ញវត្ថុ (Update Transaction)</h3>
                 <button class="btn btn-secondary" style="padding: 4px 10px;" onclick="closeEditTransactionModal()">&times; បោះបង់</button>
             </div>
             <form id="edit-transaction-form" enctype="multipart/form-data">
@@ -335,7 +351,7 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
                 </div>
                 <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 1rem;">
                     <button type="button" class="btn btn-secondary" onclick="closeEditTransactionModal()">បោះបង់</button>
-                    <button type="submit" class="btn btn-primary" style="background: #2563eb;">💾 ធ្វើបច្ចុប្បន្នភាព (Save Changes)</button>
+                    <button type="submit" class="btn btn-primary" style="background: var(--primary);">💾 ធ្វើបច្ចុប្បន្នភាព (Save Changes)</button>
                 </div>
             </form>
         </div>
@@ -345,7 +361,7 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
     <div id="audit-log-modal" class="modal-backdrop">
         <div class="modal-content-card">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.75rem; margin-bottom: 1rem;">
-                <h3 style="margin: 0; color: #1e3a8a;">📜 កំណត់ហេតុសវនកម្មសន្តិសុខ (Audit Log Viewer)</h3>
+                <h3 style="margin: 0; color: var(--dark);">📜 កំណត់ហេតុសវនកម្មសន្តិសុខ (Audit Log Viewer)</h3>
                 <button class="btn btn-secondary" style="padding: 4px 10px;" onclick="closeAuditLogModal()">&times; បិទ</button>
             </div>
             <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
@@ -369,6 +385,6 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
         </div>
     </div>
 
-    <script src="admin-integration.js?v=17.0"></script>
+    <script src="admin-integration.js?v=20.0"></script>
 </body>
 </html>

@@ -1,16 +1,17 @@
 /**
- * admin-integration.js - Production JavaScript Engine (v17)
+ * admin-integration.js - Production JavaScript Engine (v20)
  * Part of the Khmer Payment Tracker and Financial Management System
  * 
  * Features:
- * - 3-Dots (...) Activity Action Dropdown Menu with Update & Delete Options
+ * - Ultra-Responsive Mobile Layout Handling
+ * - Dark Mode Toggle & LocalStorage Memory
+ * - 3-Dots Action Dropdown Menu for Transaction Table
  * - Real-time Chart.js Analytics (Income vs Expense Bar Chart, Category Doughnut Chart)
  * - Exchange Rate Converter ($1 USD = X KHR) & Unified Total Balance Calculation
- * - Category Budget Tracking & Threshold Warnings (>80% and Exceeded)
+ * - Category Budget Tracking & Threshold Warning Banners
  * - Advanced Date Range Filtering (From Date - To Date)
  * - Audit Log Viewer for Admins
  * - Optional Receipt File Upload Handling
- * - Interactive Modal Confirmation Dialogs
  */
 
 const API_BASE_URL = 'api-v2.php';
@@ -38,6 +39,13 @@ document.addEventListener('DOMContentLoaded', () => {
     initApp();
 });
 
+// Close open action menus when clicking outside
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.action-dropdown')) {
+        document.querySelectorAll('.action-menu.show').forEach(menu => menu.classList.remove('show'));
+    }
+});
+
 /**
  * Initialize Application Engine
  */
@@ -47,20 +55,37 @@ function initApp() {
     setupDateFilterListeners();
     setupTransactionForm();
     setupEditTransactionForm();
-    setupDropdownCloseListener();
     loadDashboardMetricsAndCharts();
     loadTransactionsTable(1);
+    initDarkModeState();
 }
 
 /**
- * Setup Global Click Listener to Close Open Action Dropdown Menus
+ * Dark Mode Theme Initializer & Toggle
  */
-function setupDropdownCloseListener() {
-    document.addEventListener('click', () => {
-        document.querySelectorAll('.action-menu.show').forEach(menu => {
-            menu.classList.remove('show');
-        });
-    });
+function initDarkModeState() {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+        document.body.classList.add('dark-mode');
+        updateDarkModeBtnText(true);
+    }
+}
+
+function toggleTheme() {
+    const isDark = document.body.classList.toggle('dark-mode');
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    updateDarkModeBtnText(isDark);
+    showToast(isDark ? '🌙 បានផ្លាស់ប្តូរទៅជា Dark Mode' : '☀️ បានផ្លាស់ប្តូរទៅជា Light Mode', 'info');
+    
+    // Refresh chart text colors if loaded
+    loadDashboardMetricsAndCharts();
+}
+
+function updateDarkModeBtnText(isDark) {
+    const btn = document.getElementById('dark-mode-toggle');
+    if (btn) {
+        btn.innerHTML = isDark ? '☀️ Light Mode' : '🌙 Dark Mode';
+    }
 }
 
 /**
@@ -482,6 +507,9 @@ function renderIncomeVsExpenseChart(transactions) {
 
     if (incomeExpenseChart) incomeExpenseChart.destroy();
 
+    const isDarkMode = document.body.classList.contains('dark-mode');
+    const textColor = isDarkMode ? '#f8fafc' : '#1e293b';
+
     const ctx = canvas.getContext('2d');
     incomeExpenseChart = new Chart(ctx, {
         type: 'bar',
@@ -499,9 +527,10 @@ function renderIncomeVsExpenseChart(transactions) {
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
             scales: {
+                x: { ticks: { color: textColor } },
                 y: {
                     beginAtZero: true,
-                    ticks: { callback: function(v) { return '$' + v; } }
+                    ticks: { color: textColor, callback: function(v) { return '$' + v; } }
                 }
             }
         }
@@ -532,6 +561,9 @@ function renderCategoryDoughnutChart(transactions) {
 
     if (categoryDoughnutChart) categoryDoughnutChart.destroy();
 
+    const isDarkMode = document.body.classList.contains('dark-mode');
+    const textColor = isDarkMode ? '#f8fafc' : '#1e293b';
+
     const ctx = canvas.getContext('2d');
     categoryDoughnutChart = new Chart(ctx, {
         type: 'doughnut',
@@ -543,7 +575,7 @@ function renderCategoryDoughnutChart(transactions) {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { position: 'bottom', labels: { font: { family: "'Kantumruy Pro', sans-serif" } } }
+                legend: { position: 'bottom', labels: { color: textColor, font: { family: "'Kantumruy Pro', sans-serif" } } }
             }
         }
     });
@@ -583,9 +615,6 @@ async function loadTransactionsTable(page = 1) {
     }
 }
 
-/**
- * Render Transaction Table Rows with 3-Dots (...) Action Dropdown Menu
- */
 function renderTableRows(data) {
     const tbody = document.getElementById('transaction-table-body');
     if (!tbody) return;
@@ -610,7 +639,7 @@ function renderTableRows(data) {
         return `
             <tr data-type="${typeStr}">
                 <td data-label="កាលបរិច្ឆេទ">${row.date}</td>
-                <td data-label="បរិយាយ"><strong>${row.description}</strong></td>
+                <td data-label="បរិយាយ"><strong style="color: var(--dark);">${row.description}</strong></td>
                 <td data-label="អ្នកបន្ថែម">${row.creator || 'User'}</td>
                 <td data-label="ប្រភេទ"><span style="color: ${typeColor}; font-weight: bold;">${typeText} (${row.category})</span></td>
                 <td data-label="ចំនួនទឹកប្រាក់" style="font-weight: bold; color: ${typeColor};">${row.amount}</td>
@@ -638,7 +667,7 @@ function renderPaginationControls(pagination) {
     if (!container || !pagination) return;
 
     container.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0; font-size: 0.88rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--gray-border); font-size: 0.88rem; flex-wrap: wrap; gap: 10px;">
             <span>ទំព័រទី <strong>${pagination.current_page}</strong> នៃ <strong>${pagination.total_pages}</strong> (សរុប ${pagination.total_records} ប្រតិបត្តិការ)</span>
             <div style="display: flex; gap: 6px;">
                 <button class="btn btn-secondary" style="padding: 4px 12px; font-size: 0.85rem;" ${pagination.current_page <= 1 ? 'disabled' : ''} onclick="loadTransactionsTable(${pagination.current_page - 1})">← មុន</button>
@@ -697,9 +726,9 @@ async function openAuditLogModal() {
                 <tr>
                     <td style="padding: 10px; font-size: 0.85rem;">${log.created_at}</td>
                     <td style="padding: 10px; font-weight: 600;">👤 ${log.username || 'System'}</td>
-                    <td style="padding: 10px;"><span style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;">${log.action}</span></td>
-                    <td style="padding: 10px; font-size: 0.85rem; color: #4b5563;">${log.details || '-'}</td>
-                    <td style="padding: 10px; font-size: 0.85rem; color: #6b7280;">${log.ip_address}</td>
+                    <td style="padding: 10px;"><span style="background: var(--primary-light); color: var(--primary); padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;">${log.action}</span></td>
+                    <td style="padding: 10px; font-size: 0.85rem; color: var(--gray-text);">${log.details || '-'}</td>
+                    <td style="padding: 10px; font-size: 0.85rem; color: var(--gray-text);">${log.ip_address}</td>
                 </tr>
             `).join('');
         } else {
