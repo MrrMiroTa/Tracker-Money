@@ -128,6 +128,7 @@ $qrCodeUrl = (!empty($mfaSecretToShow)) ? MFAHelper::getQRCodeGoogleUrl($user['u
     <title>ប្រវត្តិរូប និងកំណត់រចនាសម្ព័ន្ធសន្តិសុខ - Payment Tracker</title>
     <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@300;400;600;700;800&family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="admin-style.css?v=22.0">
+    <link rel="icon" type="image/x-icon" href="icon.png">
     <script>
         (function() {
             const savedTheme = localStorage.getItem('theme');

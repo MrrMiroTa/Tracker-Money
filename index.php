@@ -28,7 +28,7 @@ $username = $_SESSION['username'] ?? 'User';
 $role = $_SESSION['role'] ?? 'user';
 
 // Categories list for form datalist
-$categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពាក់', 'ការធ្វើដំណើរ', 'វិក្កយបត្រ', 'ការអប់រំ', 'សុខភាព', 'កម្សាន្ត', 'ផ្សេងៗ'];
+$categories = ['ម្ហូបអាហារ','បាយព្រឹក','បាយថ្ងៃ','បាយល្ងាច', 'សម្លៀកបំពាក់', 'ការធ្វើដំណើរ', 'កម្សាន្ត', 'ផ្សេងៗ'];
 ?>
 <!DOCTYPE html>
 <html lang="km">
@@ -38,6 +38,7 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
     <title>ប្រព័ន្ធគ្រប់គ្រងហិរញ្ញវត្ថុ - Production Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@300;400;600;700;800&family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="admin-style.css?v=22.0">
+    <link rel="icon" type="image/x-icon" href="icon.png">
     <!-- Chart.js Engine for Visual Analytics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
