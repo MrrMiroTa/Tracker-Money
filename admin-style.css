@@ -1067,4 +1067,30 @@ body.dark-mode .action-menu-item.delete-btn:hover {
         max-height: 88vh !important;
         border-radius: var(--radius-lg) !important;
     }
+
+    /* Fix Mobile Visual Analytics Charts Layout */
+    .charts-grid {
+        gap: 1rem !important;
+        margin-bottom: 1.25rem !important;
+    }
+
+    .chart-card {
+        padding: 1rem 0.85rem !important;
+        border-radius: var(--radius-lg) !important;
+    }
+
+    .chart-header {
+        font-size: 0.95rem !important;
+        font-weight: 700 !important;
+        padding-bottom: 0.6rem !important;
+        margin-bottom: 0.75rem !important;
+        border-bottom: 1px solid var(--gray-border) !important;
+    }
+
+    .chart-container {
+        height: 235px !important;
+        width: 100% !important;
+        position: relative !important;
+    }
+
 }

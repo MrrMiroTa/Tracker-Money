@@ -509,6 +509,8 @@ function renderIncomeVsExpenseChart(transactions) {
 
     const isDarkMode = document.body.classList.contains('dark-mode');
     const textColor = isDarkMode ? '#f8fafc' : '#1e293b';
+    const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)';
+    const isMobile = window.innerWidth < 480;
 
     const ctx = canvas.getContext('2d');
     incomeExpenseChart = new Chart(ctx, {
@@ -519,18 +521,49 @@ function renderIncomeVsExpenseChart(transactions) {
                 label: 'ប្រាក់ដុល្លារ ($ USD)',
                 data: [incUsd.toFixed(2), expUsd.toFixed(2)],
                 backgroundColor: ['#10b981', '#ef4444'],
-                borderRadius: 8
+                borderRadius: { topLeft: 10, topRight: 10, bottomLeft: 0, bottomRight: 0 },
+                maxBarThickness: isMobile ? 36 : 52
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    enabled: true,
+                    backgroundColor: isDarkMode ? '#1e293b' : '#0f172a',
+                    titleColor: '#ffffff',
+                    bodyColor: '#ffffff',
+                    padding: 10,
+                    cornerRadius: 8,
+                    titleFont: { family: "'Kantumruy Pro', sans-serif", size: 13, weight: 'bold' },
+                    bodyFont: { family: "'Kantumruy Pro', sans-serif", size: 12 },
+                    callbacks: {
+                        label: function(context) {
+                            const valUsd = parseFloat(context.raw) || 0;
+                            const valKhr = Math.round(valUsd * currentUsdKhrRate);
+                            return ` $${valUsd.toLocaleString(undefined, {minimumFractionDigits: 2})} USD (${valKhr.toLocaleString()} ៛)`;
+                        }
+                    }
+                }
+            },
             scales: {
-                x: { ticks: { color: textColor } },
+                x: {
+                    grid: { display: false },
+                    ticks: {
+                        color: textColor,
+                        font: { family: "'Kantumruy Pro', sans-serif", size: isMobile ? 11 : 12, weight: '600' }
+                    }
+                },
                 y: {
                     beginAtZero: true,
-                    ticks: { color: textColor, callback: function(v) { return '$' + v; } }
+                    grid: { color: gridColor },
+                    ticks: {
+                        color: textColor,
+                        font: { family: "sans-serif", size: isMobile ? 10 : 11 },
+                        callback: function(v) { return '$' + v; }
+                    }
                 }
             }
         }
@@ -542,40 +575,115 @@ function renderCategoryDoughnutChart(transactions) {
     if (!canvas) return;
 
     const catTotals = {};
+    let totalExpenseUSD = 0;
 
     transactions.forEach(t => {
         const type = (t.raw_type || t.type || '').toLowerCase();
         if (type === 'expense') {
-            const cat = (t.category || '').trim();
+            const cat = (t.category || '').trim() || 'ផ្សេងៗ';
             const amt = parseFloat(t.raw_amount || t.amount) || 0;
             const curr = (t.raw_currency || t.currency || '').toUpperCase();
             const amtUsd = (curr === 'USD') ? amt : (amt / currentUsdKhrRate);
 
             catTotals[cat] = (catTotals[cat] || 0) + amtUsd;
+            totalExpenseUSD += amtUsd;
         }
     });
 
     const labels = Object.keys(catTotals);
-    const dataValues = Object.values(catTotals).map(v => v.toFixed(2));
-    const colors = ['#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#64748b'];
+    let dataValues = Object.values(catTotals).map(v => v.toFixed(2));
+    let colors = ['#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#64748b'];
 
     if (categoryDoughnutChart) categoryDoughnutChart.destroy();
 
     const isDarkMode = document.body.classList.contains('dark-mode');
     const textColor = isDarkMode ? '#f8fafc' : '#1e293b';
+    const isMobile = window.innerWidth < 480;
+
+    // Handle Empty Case gracefully
+    if (labels.length === 0 || totalExpenseUSD === 0) {
+        const ctx = canvas.getContext('2d');
+        categoryDoughnutChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['គ្មានទិន្នន័យចំណាយ'],
+                datasets: [{
+                    data: [1],
+                    backgroundColor: [isDarkMode ? '#334155' : '#e2e8f0'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '72%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: textColor,
+                            usePointStyle: true,
+                            pointStyle: 'circle',
+                            font: { family: "'Kantumruy Pro', sans-serif", size: 11 }
+                        }
+                    },
+                    tooltip: { enabled: false }
+                }
+            }
+        });
+        return;
+    }
 
     const ctx = canvas.getContext('2d');
     categoryDoughnutChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
             labels: labels,
-            datasets: [{ data: dataValues, backgroundColor: colors.slice(0, labels.length) }]
+            datasets: [{
+                data: dataValues,
+                backgroundColor: colors.slice(0, labels.length),
+                borderWidth: 2,
+                borderColor: isDarkMode ? '#1e293b' : '#ffffff'
+            }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            cutout: '68%',
             plugins: {
-                legend: { position: 'bottom', labels: { color: textColor, font: { family: "'Kantumruy Pro', sans-serif" } } }
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        color: textColor,
+                        usePointStyle: true,
+                        pointStyle: 'circle',
+                        boxWidth: 8,
+                        boxHeight: 8,
+                        padding: isMobile ? 8 : 12,
+                        font: {
+                            family: "'Kantumruy Pro', sans-serif",
+                            size: isMobile ? 10 : 12
+                        }
+                    }
+                },
+                tooltip: {
+                    enabled: true,
+                    backgroundColor: isDarkMode ? '#1e293b' : '#0f172a',
+                    titleColor: '#ffffff',
+                    bodyColor: '#ffffff',
+                    padding: 10,
+                    cornerRadius: 8,
+                    titleFont: { family: "'Kantumruy Pro', sans-serif", size: 13, weight: 'bold' },
+                    bodyFont: { family: "'Kantumruy Pro', sans-serif", size: 12 },
+                    callbacks: {
+                        label: function(context) {
+                            const catName = context.label || '';
+                            const valUsd = parseFloat(context.raw) || 0;
+                            const pct = totalExpenseUSD > 0 ? ((valUsd / totalExpenseUSD) * 100).toFixed(1) : 0;
+                            return ` ${catName}: $${valUsd.toLocaleString(undefined, {minimumFractionDigits: 2})} (${pct}%)`;
+                        }
+                    }
+                }
             }
         }
     });

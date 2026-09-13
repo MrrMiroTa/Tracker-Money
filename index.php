@@ -37,7 +37,7 @@ $categories = ['អាហារពេលព្រឹក','អាហារពេ�
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ប្រព័ន្ធគ្រប់គ្រងហិរញ្ញវត្ថុ - Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@300;400;600;700;800&family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="admin-style.css?v=20.0">
+    <link rel="stylesheet" href="admin-style.css?v=21.0">
     <link rel="icon" type="image/x-icon" href="icon.png">
     <!-- Chart.js Engine for Visual Analytics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -385,6 +385,6 @@ $categories = ['អាហារពេលព្រឹក','អាហារពេ�
         </div>
     </div>
 
-    <script src="admin-integration.js?v=20.0"></script>
+    <script src="admin-integration.js?v=21.0"></script>
 </body>
 </html>
