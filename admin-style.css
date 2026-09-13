@@ -1,11 +1,11 @@
-/* admin-style.css - Ultra-Modern Fintech SaaS Stylesheet v23.0 */
+/* admin-style-v22.css - Production Ultra-Responsive Modern Fintech Stylesheet */
 @import url('https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 :root {
     --primary: #4f46e5;         /* Indigo / Modern Blue */
     --primary-dark: #4338ca;
     --primary-light: #eef2ff;
-    --success: #059669;         /* Emerald Green */
+    --success: #059669;         /* Vibrant Emerald Green */
     --success-light: #ecfdf5;
     --success-text: #047857;
     --warning: #d97706;         /* Amber Alert */
@@ -20,15 +20,15 @@
     --white: #ffffff;
     
     --font-khmer: 'Kantumruy Pro', 'Inter', system-ui, -apple-system, sans-serif;
-    --radius-xl: 18px;
-    --radius-lg: 14px;
-    --radius-md: 10px;
+    --radius-xl: 16px;
+    --radius-lg: 12px;
+    --radius-md: 8px;
     --radius-sm: 6px;
     --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    --shadow-card: 0 10px 30px -5px rgba(0, 0, 0, 0.05), 0 2px 8px -2px rgba(0, 0, 0, 0.02);
-    --shadow-hover: 0 20px 35px -8px rgba(0, 0, 0, 0.1), 0 6px 15px -3px rgba(0, 0, 0, 0.04);
+    --shadow-card: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
+    --shadow-hover: 0 12px 28px -4px rgba(0, 0, 0, 0.09), 0 4px 12px -2px rgba(0, 0, 0, 0.04);
 }
 
 /* Strict Page Overflow Protection */
@@ -70,7 +70,9 @@ body.dark-mode .welcome-banner,
 body.dark-mode .chart-card,
 body.dark-mode .admin-control-bar,
 body.dark-mode .modal-content-card,
-body.dark-mode .action-menu {
+body.dark-mode .action-menu,
+body.dark-mode .profile-card,
+body.dark-mode .profile-hero-card {
     background-color: #1e293b !important;
     border-color: #334155 !important;
     color: #f8fafc !important;
@@ -79,7 +81,8 @@ body.dark-mode .action-menu {
 body.dark-mode .welcome-banner h1,
 body.dark-mode .chart-header,
 body.dark-mode .form-title,
-body.dark-mode .metric-header h3 {
+body.dark-mode .metric-header h3,
+body.dark-mode .profile-card h3 {
     color: #f8fafc !important;
 }
 
@@ -145,7 +148,7 @@ body.dark-mode .action-menu-item.delete-btn:hover {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 4px 25px rgba(15, 23, 42, 0.2);
+    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.15);
     position: sticky;
     top: 0;
     z-index: 100;
@@ -153,7 +156,7 @@ body.dark-mode .action-menu-item.delete-btn:hover {
 }
 
 .navbar-brand {
-    font-size: 1.35rem;
+    font-size: 1.3rem;
     font-weight: 800;
     display: flex;
     align-items: center;
@@ -162,7 +165,7 @@ body.dark-mode .action-menu-item.delete-btn:hover {
 }
 
 .navbar-brand span {
-    filter: drop-shadow(0 2px 8px rgba(99, 102, 241, 0.5));
+    filter: drop-shadow(0 2px 8px rgba(99, 102, 241, 0.4));
 }
 
 .navbar-toggle {
@@ -197,35 +200,39 @@ body.dark-mode .action-menu-item.delete-btn:hover {
     text-decoration: none;
     font-weight: 600;
     font-size: 0.92rem;
-    padding: 0.55rem 1rem;
+    padding: 0.5rem 0.9rem;
     border-radius: var(--radius-sm);
     transition: var(--transition);
 }
 
-.navbar-nav a:hover, .navbar-nav a.active {
+.navbar-nav a:hover {
     color: var(--white);
-    background-color: rgba(255, 255, 255, 0.14);
+    background-color: rgba(255, 255, 255, 0.12);
     transform: translateY(-1px);
 }
 
 .logout-btn {
     background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
     color: var(--white) !important;
-    padding: 0.5rem 1.2rem !important;
+    padding: 0.45rem 1.1rem !important;
     border-radius: var(--radius-sm) !important;
-    box-shadow: 0 2px 10px rgba(239, 68, 68, 0.35);
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
 }
 
 .logout-btn:hover {
-    box-shadow: 0 4px 15px rgba(239, 68, 68, 0.45);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
     transform: translateY(-1px) !important;
 }
 
-/* Dashboard Main Container */
-.dashboard-container {
+/* Dashboard & Profile Containers */
+.dashboard-container, .profile-container {
     max-width: 1240px;
     margin: 2rem auto;
     padding: 0 1.5rem;
+}
+
+.profile-container {
+    max-width: 1000px;
 }
 
 /* Welcome Banner */
@@ -270,33 +277,116 @@ body.dark-mode .action-menu-item.delete-btn:hover {
     border: 1px solid rgba(79, 70, 229, 0.2);
 }
 
+/* Modern Profile Hero Card */
+.profile-hero-card {
+    background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%);
+    color: var(--white);
+    padding: 2rem;
+    border-radius: var(--radius-xl);
+    box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.25);
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1.75rem;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.profile-avatar-box {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.25rem;
+    color: #ffffff;
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+    border: 3px solid rgba(255, 255, 255, 0.2);
+    flex-shrink: 0;
+}
+
+.profile-hero-info h2 {
+    margin: 0;
+    font-size: 1.6rem;
+    font-weight: 800;
+}
+
+.profile-hero-info p {
+    margin: 0.25rem 0 0 0;
+    color: #cbd5e1;
+    font-size: 0.95rem;
+}
+
+.profile-badges-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.profile-stat-pill {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+/* Profile Section Cards */
+.profile-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.75rem;
+}
+
+@media (min-width: 992px) {
+    .profile-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.profile-card {
+    background: var(--white);
+    padding: 1.75rem;
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--gray-border);
+    box-shadow: var(--shadow-card);
+}
+
+.profile-card h3 {
+    margin-top: 0;
+    margin-bottom: 1.25rem;
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--dark);
+    border-bottom: 2px solid var(--gray-bg);
+    padding-bottom: 0.65rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 /* 1. Unified Exchange Rate Banner Widget */
 .exchange-rate-widget {
     background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%);
     color: var(--white);
-    padding: 1.35rem 1.75rem;
+    padding: 1.25rem 1.75rem;
     border-radius: var(--radius-xl);
-    box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.25);
+    box-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.2);
     margin-bottom: 1.5rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
     gap: 1.25rem;
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     position: relative;
     overflow: hidden;
-}
-
-.exchange-rate-widget::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    right: -20%;
-    width: 320px;
-    height: 320px;
-    background: radial-gradient(circle, rgba(99, 102, 241, 0.3) 0%, transparent 70%);
-    pointer-events: none;
 }
 
 .exchange-rate-inputs {
@@ -313,19 +403,13 @@ body.dark-mode .action-menu-item.delete-btn:hover {
     padding: 8px 12px;
     border-radius: var(--radius-md);
     border: 1.5px solid rgba(255, 255, 255, 0.25);
-    background: rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.1);
     color: var(--white);
     font-weight: 800;
     text-align: center;
     font-size: 1.05rem;
     outline: none;
     transition: var(--transition);
-}
-
-.exchange-rate-inputs input:focus {
-    border-color: #a5b4fc;
-    background: rgba(255, 255, 255, 0.22);
-    box-shadow: 0 0 0 4px rgba(165, 180, 252, 0.25);
 }
 
 .unified-balance-display {
@@ -336,14 +420,13 @@ body.dark-mode .action-menu-item.delete-btn:hover {
 }
 
 .unified-badge {
-    background: rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.12);
     border: 1px solid rgba(255, 255, 255, 0.25);
     padding: 8px 18px;
     border-radius: 30px;
     font-weight: 800;
     font-size: 1.1rem;
-    backdrop-filter: blur(10px);
-    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(8px);
 }
 
 /* 2. Metrics Cards Grid */
@@ -493,11 +576,6 @@ body.dark-mode .action-menu-item.delete-btn:hover {
     border-radius: var(--radius-xl);
     border: 1px solid var(--gray-border);
     box-shadow: var(--shadow-card);
-    transition: var(--transition);
-}
-
-.chart-card:hover {
-    box-shadow: var(--shadow-hover);
 }
 
 .chart-header {
@@ -514,7 +592,7 @@ body.dark-mode .action-menu-item.delete-btn:hover {
 
 .chart-container {
     position: relative;
-    height: 300px;
+    height: 290px;
     width: 100%;
 }
 
@@ -534,16 +612,11 @@ body.dark-mode .action-menu-item.delete-btn:hover {
 
 .admin-control-bar .btn {
     border-radius: var(--radius-md);
-    padding: 0.65rem 1.25rem;
+    padding: 0.6rem 1.25rem;
     font-size: 0.9rem;
     font-weight: 700;
     box-shadow: var(--shadow-sm);
     transition: var(--transition);
-}
-
-.admin-control-bar .btn:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-card);
 }
 
 /* 6. Main Layout Grid */
@@ -841,6 +914,56 @@ body.dark-mode .action-menu-item.delete-btn:hover {
     to { opacity: 1; transform: scale(1); }
 }
 
+/* Toggle Switch Styles */
+.toggle-switch-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 0;
+}
+
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 48px;
+    height: 26px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #cbd5e1;
+    transition: .3s;
+    border-radius: 30px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .3s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: var(--primary);
+}
+
+input:checked + .slider:before {
+    transform: translateX(22px);
+}
+
 /* ========================================================= */
 /* --- COMPREHENSIVE MOBILE RESPONSIVE FIXES (<768px) --- */
 /* ========================================================= */
@@ -889,9 +1012,26 @@ body.dark-mode .action-menu-item.delete-btn:hover {
         justify-content: flex-start;
     }
 
-    .dashboard-container {
+    .dashboard-container, .profile-container {
         padding: 0.85rem;
         margin: 1rem auto;
+    }
+
+    .profile-hero-card {
+        padding: 1.25rem;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .profile-avatar-box {
+        width: 64px;
+        height: 64px;
+        font-size: 1.75rem;
+    }
+
+    .profile-hero-info h2 {
+        font-size: 1.35rem;
     }
 
     .welcome-banner {
@@ -955,16 +1095,18 @@ body.dark-mode .action-menu-item.delete-btn:hover {
     }
 
     /* Fix Charts on Mobile */
+    .charts-grid {
+        grid-template-columns: 1fr;
+        gap: 1.25rem;
+    }
+
     .chart-card {
-        padding: 1rem 1.15rem !important;
+        padding: 1rem 1.1rem !important;
+        border-radius: var(--radius-lg) !important;
     }
 
     .chart-container {
         height: 275px !important;
-    }
-
-    .chart-header {
-        font-size: 0.98rem !important;
     }
 
     /* Fix Admin Control Bar on Mobile */
@@ -1061,7 +1203,7 @@ body.dark-mode .action-menu-item.delete-btn:hover {
     
     .transaction-table td:last-child {
         border-bottom: 0 !important;
-        justify-content: flex-end !important;
+        justify-content: space-between !important;
         padding-top: 12px !important;
     }
     
