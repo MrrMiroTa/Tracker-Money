@@ -2,6 +2,12 @@
 /**
  * api-v2.php - Unified User & Administrative Authorization Management API
  * Part of the Khmer Payment Tracker and Financial Management System
+ * 
+ * Features:
+ * - User Authentication (Login, Logout)
+ * - User Management (Create User, Reset Password, List Users, Delete User)
+ * - Security Audit Logging (get_audit_logs / audit_logs)
+ * - Role-Based Access Control (RBAC) Enforcement
  */
 
 header("Content-Type: application/json; charset=UTF-8");
@@ -10,12 +16,12 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-require_once 'config.php';
+require_once "config.php";
 
 // Security Helper to log admin activities
-function logAdminActivity($db, $action, $target_user_id = null, $details = '') {
-    $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
-    $userId = $_SESSION['user_id'] ?? 0;
+function logAdminActivity($db, $action, $target_user_id = null, $details = "") {
+    $ip = $_SERVER["REMOTE_ADDR"] ?? "127.0.0.1";
+    $userId = $_SESSION["user_id"] ?? 0;
     
     if ($db) {
         try {
@@ -29,23 +35,23 @@ function logAdminActivity($db, $action, $target_user_id = null, $details = '') {
 
 // RBAC Permissions Configuration
 $role_permissions = [
-    'super_admin' => [
-        'view_dashboard', 'add_transaction', 'edit_transaction', 'delete_transaction',
-        'view_users', 'add_admin_request', 'approve_admin', 'delete_user', 'view_audit_logs',
-        'create_user', 'reset_password'
+    "super_admin" => [
+        "view_dashboard", "add_transaction", "edit_transaction", "delete_transaction",
+        "view_users", "add_admin_request", "approve_admin", "delete_user", "view_audit_logs",
+        "create_user", "reset_password"
     ],
-    'admin' => [
-        'view_dashboard', 'add_transaction', 'edit_transaction',
-        'view_users', 'add_admin_request',
-        'create_user', 'reset_password', 'delete_user', 'view_audit_logs'
+    "admin" => [
+        "view_dashboard", "add_transaction", "edit_transaction",
+        "view_users", "add_admin_request",
+        "create_user", "reset_password", "delete_user", "view_audit_logs"
     ],
-    'user' => [
-        'view_dashboard', 'add_transaction'
+    "user" => [
+        "view_dashboard", "add_transaction"
     ]
 ];
 
 function isAuthenticated() {
-    return isset($_SESSION['user_id']) && isset($_SESSION['role']);
+    return isset($_SESSION["user_id"]) && isset($_SESSION["role"]);
 }
 
 function checkPermission($required_permission) {
@@ -57,7 +63,7 @@ function checkPermission($required_permission) {
         exit;
     }
 
-    $user_role = $_SESSION['role'];
+    $user_role = $_SESSION["role"];
 
     if (!isset($role_permissions[$user_role]) || !in_array($required_permission, $role_permissions[$user_role])) {
         http_response_code(403);
@@ -68,27 +74,27 @@ function checkPermission($required_permission) {
     return true;
 }
 
-$db = getDBConnection();
-$request_method = $_SERVER['REQUEST_METHOD'];
-$action = isset($_GET['action']) ? $_GET['action'] : '';
+$db = getSecureDBConnection();
+$request_method = $_SERVER["REQUEST_METHOD"];
+$action = isset($_GET["action"]) ? $_GET["action"] : "";
 
 $is_simulated = ($db === null);
 
 switch ($request_method) {
-    case 'POST':
-        if ($action === 'login') {
+    case "POST":
+        if ($action === "login") {
             handleLogin($db, $is_simulated);
-        } elseif ($action === 'request_admin') {
+        } elseif ($action === "request_admin") {
             handleRequestAdminPromotion($db, $is_simulated);
-        } elseif ($action === 'approve_admin') {
+        } elseif ($action === "approve_admin") {
             handleApproveAdminPromotion($db, $is_simulated);
-        } elseif ($action === 'create_user') {
+        } elseif ($action === "create_user") {
             handleCreateUser($db, $is_simulated);
-        } elseif ($action === 'reset_password') {
+        } elseif ($action === "reset_password") {
             handleResetPassword($db, $is_simulated);
-        } elseif ($action === 'delete_user') {
+        } elseif ($action === "delete_user") {
             handleDeleteUser($db, $is_simulated);
-        } elseif ($action === 'logout') {
+        } elseif ($action === "logout") {
             handleLogout();
         } else {
             http_response_code(400);
@@ -96,12 +102,12 @@ switch ($request_method) {
         }
         break;
         
-    case 'GET':
-        if ($action === 'users' || $action === 'get_users' || $action === 'list_users') {
+    case "GET":
+        if ($action === "users" || $action === "get_users" || $action === "list_users") {
             handleGetUsers($db, $is_simulated);
-        } elseif ($action === 'approvals') {
+        } elseif ($action === "approvals") {
             handleGetPendingApprovals($db, $is_simulated);
-        } elseif ($action === 'audit_logs' || $action === 'get_audit_logs' || $action === 'get_audit_history') {
+        } elseif ($action === "audit_logs" || $action === "get_audit_logs") {
             handleGetAuditLogs($db, $is_simulated);
         } else {
             http_response_code(400);
@@ -120,25 +126,25 @@ switch ($request_method) {
 function handleLogin($db, $simulated) {
     $data = json_decode(file_get_contents("php://input"), true);
     
-    if (empty($data['username']) || empty($data['password'])) {
+    if (empty($data["username"]) || empty($data["password"])) {
         http_response_code(400);
         echo json_encode(["status" => "error", "message" => "Username and password are required."]);
         return;
     }
 
-    $username = trim($data['username']);
-    $password = $data['password'];
+    $username = trim($data["username"]);
+    $password = $data["password"];
 
     if ($simulated) {
-        if ($username === 'admin_sophors' && $password === 'admin123') {
-            $_SESSION['user_id'] = 2;
-            $_SESSION['username'] = 'admin_sophors';
-            $_SESSION['role'] = 'admin';
+        if ($username === "admin_sophors" && $password === "admin123") {
+            $_SESSION["user_id"] = 2;
+            $_SESSION["username"] = "admin_sophors";
+            $_SESSION["role"] = "admin";
             echo json_encode(["status" => "success", "message" => "Simulated Login Successful", "user" => ["username" => $username, "role" => "admin"]]);
-        } else if ($username === 'superadmin_cambodia' && $password === 'admin123') {
-            $_SESSION['user_id'] = 1;
-            $_SESSION['username'] = 'superadmin_cambodia';
-            $_SESSION['role'] = 'super_admin';
+        } else if ($username === "superadmin_cambodia" && $password === "admin123") {
+            $_SESSION["user_id"] = 1;
+            $_SESSION["username"] = "superadmin_cambodia";
+            $_SESSION["role"] = "super_admin";
             echo json_encode(["status" => "success", "message" => "Simulated Login Successful", "user" => ["username" => $username, "role" => "super_admin"]]);
         } else {
             http_response_code(401);
@@ -152,26 +158,26 @@ function handleLogin($db, $simulated) {
         $stmt->execute([$username]);
         $user = $stmt->fetch();
 
-        if ($user && password_verify($password, $user['password_hash'])) {
-            if ($user['status'] !== 'active') {
+        if ($user && password_verify($password, $user["password_hash"])) {
+            if ($user["status"] !== "active") {
                 http_response_code(403);
                 echo json_encode(["status" => "error", "message" => "Account is suspended or inactive."]);
                 return;
             }
 
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['username'] = $user['username'];
-            $_SESSION['role'] = $user['role'];
+            $_SESSION["user_id"] = $user["id"];
+            $_SESSION["username"] = $user["username"];
+            $_SESSION["role"] = $user["role"];
 
-            logAdminActivity($db, 'LOGIN', $user['id'], "User logged in successfully");
+            logAdminActivity($db, "LOGIN", $user["id"], "User logged in successfully");
 
             echo json_encode([
                 "status" => "success",
                 "message" => "Login successful!",
                 "user" => [
-                    "user_id" => $user['id'],
-                    "username" => $user['username'],
-                    "role" => $user['role']
+                    "user_id" => $user["id"],
+                    "username" => $user["username"],
+                    "role" => $user["role"]
                 ]
             ]);
         } else {
@@ -186,12 +192,12 @@ function handleLogin($db, $simulated) {
 }
 
 function handleGetAuditLogs($db, $simulated) {
-    checkPermission('view_audit_logs');
+    checkPermission("view_audit_logs");
     
     if ($simulated) {
         $logs = [
-            ["id" => 1, "username" => "admin_sophors", "operator" => "admin_sophors", "operator_name" => "admin_sophors", "action" => "REQUEST_ADD_ADMIN", "action_type" => "UPDATE", "details" => "Requested promotion for user ID: 3", "original_value" => "Role: USER", "new_value" => "Role: ADMIN", "ip_address" => "127.0.0.1", "created_at" => "2026-08-24 10:00:00"],
-            ["id" => 2, "username" => "superadmin_cambodia", "operator" => "superadmin_cambodia", "operator_name" => "superadmin_cambodia", "action" => "CREATE_USER", "action_type" => "CREATE", "details" => "Created new user account 'khmer_user1'", "original_value" => "-", "new_value" => "User: khmer_user1", "ip_address" => "127.0.0.1", "created_at" => "2026-08-25 11:15:00"]
+            ["id" => 1, "username" => "admin_sophors", "operator" => "admin_sophors", "action" => "REQUEST_ADD_ADMIN", "details" => "Requested promotion for user ID: 3", "ip_address" => "127.0.0.1", "created_at" => "2026-08-24 10:00:00"],
+            ["id" => 2, "username" => "superadmin_cambodia", "operator" => "superadmin_cambodia", "action" => "CREATE_USER", "details" => "Created new user account khmer_user1", "ip_address" => "127.0.0.1", "created_at" => "2026-08-25 11:15:00"]
         ];
         echo json_encode(["status" => "success", "data" => $logs]);
         return;
@@ -199,7 +205,7 @@ function handleGetAuditLogs($db, $simulated) {
 
     try {
         $stmt = $db->query("
-            SELECT l.id, COALESCE(u.username, 'System') as username, COALESCE(u.username, 'System') as operator_name, l.action, l.details, l.ip_address, l.created_at 
+            SELECT l.id, COALESCE(u.username, System) as username, COALESCE(u.username, System) as operator, l.action, l.details, l.ip_address, l.created_at 
             FROM audit_logs l
             LEFT JOIN users u ON l.user_id = u.id
             ORDER BY l.created_at DESC
@@ -215,7 +221,7 @@ function handleGetAuditLogs($db, $simulated) {
 }
 
 function handleGetUsers($db, $simulated) {
-    checkPermission('view_users');
+    checkPermission("view_users");
     
     if ($simulated) {
         $users = [
@@ -239,43 +245,43 @@ function handleGetUsers($db, $simulated) {
 }
 
 function handleCreateUser($db, $simulated) {
-    checkPermission('create_user');
+    checkPermission("create_user");
 
     $data = json_decode(file_get_contents("php://input"), true);
-    if (empty($data['username']) || empty($data['password']) || empty($data['role'])) {
+    if (empty($data["username"]) || empty($data["password"]) || empty($data["role"])) {
         http_response_code(400);
         echo json_encode(["status" => "error", "message" => "ឈ្មោះអ្នកប្រើប្រាស់ ពាក្យសម្ងាត់ និងតួនាទី គឺចាំបាច់ត្រូវតែបំពេញ!"]);
         return;
     }
 
-    $username = trim($data['username']);
-    $password = $data['password'];
-    $role = trim($data['role']);
+    $username = trim($data["username"]);
+    $password = $data["password"];
+    $role = trim($data["role"]);
 
-    if (!in_array($role, ['user', 'admin', 'super_admin'])) {
+    if (!in_array($role, ["user", "admin", "super_admin"])) {
         http_response_code(400);
         echo json_encode(["status" => "error", "message" => "ប្រភេទតួនាទីមិនត្រឹមត្រូវឡើយ!"]);
         return;
     }
 
-    $creator_role = $_SESSION['role'];
-    if ($creator_role === 'admin' && ($role === 'admin' || $role === 'super_admin')) {
+    $creator_role = $_SESSION["role"];
+    if ($creator_role === "admin" && ($role === "admin" || $role === "super_admin")) {
         http_response_code(403);
         echo json_encode(["status" => "error", "message" => "គណនីប្រភេទ Admin អាចបង្កើតបានតែសិទ្ធិជា User ធម្មតាប៉ុណ្ណោះ!"]);
         return;
     }
 
-    $minLength = ($role === 'super_admin' || $role === 'admin') ? 12 : 8;
+    $minLength = ($role === "super_admin" || $role === "admin") ? 12 : 8;
     if (strlen($password) < $minLength) {
         http_response_code(400);
-        echo json_encode(["status" => "error", "message" => "ពាក្យសម្ងាត់សម្រាប់តួនាទី " . strtoupper($role) . " ត្រូវតែមានប្រវែងយ៉ាងតិច {$minLength} ខ្ទង់។"]);
+        echo json_encode(["status" => "error", "message" => "ពាក្យសម្ងាត់សម្រាប់តួនាទី " . strtoupper($role) . " ត្រូវតែមានប្រវែងយ៉ាងតិច {$minLength} ខ្ទង់。"]);
         return;
     }
 
     if ($simulated) {
         echo json_encode([
             "status" => "success",
-            "message" => "បង្កើតគណនី '{$username}' (តួនាទី: " . strtoupper($role) . ") ជោគជ័យ!"
+            "message" => "បង្កើតគណនី {} (តួនាទី: " . strtoupper($role) . ") ជោគជ័យ!"
         ]);
         return;
     }
@@ -290,15 +296,15 @@ function handleCreateUser($db, $simulated) {
         }
 
         $password_hash = password_hash($password, PASSWORD_BCRYPT);
-        $stmt = $db->prepare("INSERT INTO users (username, password_hash, role, status) VALUES (?, ?, ?, 'active')");
+        $stmt = $db->prepare("INSERT INTO users (username, password_hash, role, status) VALUES (?, ?, ?, active)");
         $stmt->execute([$username, $password_hash, $role]);
         $new_user_id = $db->lastInsertId();
 
-        logAdminActivity($db, 'CREATE_USER', $new_user_id, "Created new user account: '$username' with role: '$role'");
+        logAdminActivity($db, "CREATE_USER", $new_user_id, "Created new user account: {} with role: {}");
 
         echo json_encode([
             "status" => "success",
-            "message" => "បង្កើតគណនីអ្នកប្រើប្រាស់ '$username' (តួនាទី: " . strtoupper($role) . ") ទទួលបានជោគជ័យ!"
+            "message" => "បង្កើតគណនីអ្នកប្រើប្រាស់ {} (តួនាទី: " . strtoupper($role) . ") ទទួលបានជោគជ័យ!"
         ]);
     } catch (PDOException $e) {
         error_log("Database error creating user: " . $e->getMessage());
@@ -308,17 +314,17 @@ function handleCreateUser($db, $simulated) {
 }
 
 function handleResetPassword($db, $simulated) {
-    checkPermission('reset_password');
+    checkPermission("reset_password");
 
     $data = json_decode(file_get_contents("php://input"), true);
-    if (empty($data['target_user_id']) || empty($data['new_password'])) {
+    if (empty($data["target_user_id"]) || empty($data["new_password"])) {
         http_response_code(400);
         echo json_encode(["status" => "error", "message" => "លេខសម្គាល់អ្នកប្រើប្រាស់ និងពាក្យសម្ងាត់ថ្មី គឺចាំបាច់ត្រូវតែបំពេញ!"]);
         return;
     }
 
-    $target_user_id = intval($data['target_user_id']);
-    $new_password = $data['new_password'];
+    $target_user_id = intval($data["target_user_id"]);
+    $new_password = $data["new_password"];
 
     if ($simulated) {
         echo json_encode([
@@ -339,20 +345,20 @@ function handleResetPassword($db, $simulated) {
             return;
         }
 
-        $target_username = $target_user['username'];
-        $target_role = $target_user['role'];
+        $target_username = $target_user["username"];
+        $target_role = $target_user["role"];
 
-        $creator_role = $_SESSION['role'];
-        if ($creator_role === 'admin' && ($target_role === 'admin' || $target_role === 'super_admin')) {
+        $creator_role = $_SESSION["role"];
+        if ($creator_role === "admin" && ($target_role === "admin" || $target_role === "super_admin")) {
             http_response_code(403);
             echo json_encode(["status" => "error", "message" => "គណនីប្រភេទ Admin អាចធ្វើការ Reset បានតែគណនីប្រភេទ User ធម្មតាប៉ុណ្ណោះ!"]);
             return;
         }
 
-        $minLength = ($target_role === 'super_admin' || $target_role === 'admin') ? 12 : 8;
+        $minLength = ($target_role === "super_admin" || $target_role === "admin") ? 12 : 8;
         if (strlen($new_password) < $minLength) {
             http_response_code(400);
-            echo json_encode(["status" => "error", "message" => "ពាក្យសម្ងាត់សម្រាប់តួនាទី " . strtoupper($target_role) . " ត្រូវតែមានប្រវែងយ៉ាងតិច {$minLength} ខ្ទង់។"]);
+            echo json_encode(["status" => "error", "message" => "ពាក្យសម្ងាត់សម្រាប់តួនាទី " . strtoupper($target_role) . " ត្រូវតែមានប្រវែងយ៉ាងតិច {$minLength} ខ្ទង់。"]);
             return;
         }
 
@@ -360,11 +366,11 @@ function handleResetPassword($db, $simulated) {
         $stmt = $db->prepare("UPDATE users SET password_hash = ? WHERE id = ?");
         $stmt->execute([$password_hash, $target_user_id]);
 
-        logAdminActivity($db, 'RESET_USER_PASSWORD', $target_user_id, "Reset password for user: '$target_username'");
+        logAdminActivity($db, "RESET_USER_PASSWORD", $target_user_id, "Reset password for user: {}");
 
         echo json_encode([
             "status" => "success",
-            "message" => "ការផ្លាស់ប្តូរពាក្យសម្ងាត់សម្រាប់អ្នកប្រើប្រាស់ '$target_username' ទទួលបានជោគជ័យ!"
+            "message" => "ការផ្លាស់ប្តូរពាក្យសម្ងាត់សម្រាប់អ្នកប្រើប្រាស់ {} ទទួលបានជោគជ័យ!"
         ]);
     } catch (PDOException $e) {
         error_log("Database error resetting password: " . $e->getMessage());
@@ -374,10 +380,10 @@ function handleResetPassword($db, $simulated) {
 }
 
 function handleDeleteUser($db, $simulated) {
-    checkPermission('delete_user');
+    checkPermission("delete_user");
 
     $data = json_decode(file_get_contents("php://input"), true);
-    $target_user_id = intval($data['target_user_id'] ?? 0);
+    $target_user_id = intval($data["target_user_id"] ?? 0);
 
     if ($target_user_id <= 0) {
         http_response_code(400);
@@ -385,7 +391,7 @@ function handleDeleteUser($db, $simulated) {
         return;
     }
 
-    if ($target_user_id == $_SESSION['user_id']) {
+    if ($target_user_id == $_SESSION["user_id"]) {
         http_response_code(400);
         echo json_encode(["status" => "error", "message" => "លោកអ្នកមិនអាចលុបគណនីផ្ទាល់ខ្លួនឯងបានទេ!"]);
         return;
@@ -407,11 +413,8 @@ function handleDeleteUser($db, $simulated) {
             return;
         }
 
-        $target_username = $target_user['username'];
-        $target_role = $target_user['role'];
-
-        $creator_role = $_SESSION['role'];
-        if ($creator_role === 'admin' && ($target_role === 'admin' || $target_role === 'super_admin')) {
+        $creator_role = $_SESSION["role"];
+        if ($creator_role === "admin" && ($target_user["role"] === "admin" || $target_user["role"] === "super_admin")) {
             http_response_code(403);
             echo json_encode(["status" => "error", "message" => "Admin អាចលុបបានតែគណនីប្រភេទ User ធម្មតាប៉ុណ្ណោះ!"]);
             return;
@@ -420,9 +423,9 @@ function handleDeleteUser($db, $simulated) {
         $stmt = $db->prepare("DELETE FROM users WHERE id = ?");
         $stmt->execute([$target_user_id]);
 
-        logAdminActivity($db, 'DELETE_USER', $target_user_id, "Deleted user account: '$target_username'");
+        logAdminActivity($db, "DELETE_USER", $target_user_id, "Deleted user account: {[username]}");
 
-        echo json_encode(["status" => "success", "message" => "លុបគណនីអ្នកប្រើប្រាស់ '$target_username' ទទួលបានជោគជ័យ!"]);
+        echo json_encode(["status" => "success", "message" => "លុបគណនីអ្នកប្រើប្រាស់ {[username]} ទទួលបានជោគជ័យ!"]);
     } catch (PDOException $e) {
         error_log("Database error deleting user: " . $e->getMessage());
         http_response_code(500);
@@ -431,17 +434,17 @@ function handleDeleteUser($db, $simulated) {
 }
 
 function handleGetPendingApprovals($db, $simulated) {
-    checkPermission('approve_admin');
+    checkPermission("approve_admin");
     echo json_encode(["status" => "success", "data" => []]);
 }
 
 function handleRequestAdminPromotion($db, $simulated) {
-    checkPermission('add_admin_request');
+    checkPermission("add_admin_request");
     echo json_encode(["status" => "success", "message" => "Admin request submitted"]);
 }
 
 function handleApproveAdminPromotion($db, $simulated) {
-    checkPermission('approve_admin');
+    checkPermission("approve_admin");
     echo json_encode(["status" => "success", "message" => "Admin promotion approved"]);
 }
 
@@ -449,7 +452,7 @@ function handleLogout() {
     $_SESSION = array();
     if (ini_get("session.use_cookies")) {
         $params = session_get_cookie_params();
-        setcookie(session_name(), '', time() - 42000,
+        setcookie(session_name(), "", time() - 42000,
             $params["path"], $params["domain"],
             $params["secure"], $params["httponly"]
         );

@@ -12,61 +12,61 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 // Environment Credentials for Wasmer / MySQL
-define('DB_HOST', getenv('WASMER_MYSQL_HOST') ?: (getenv('DB_HOST') ?: 'YOUR_WASMER_DB_HOST'));
-define('DB_PORT', getenv('WASMER_MYSQL_PORT') ?: (getenv('DB_PORT') ?: '3306'));
-define('DB_NAME', getenv('WASMER_MYSQL_NAME') ?: (getenv('DB_NAME') ?: 'YOUR_WASMER_DB_NAME'));
-define('DB_USER', getenv('WASMER_MYSQL_USER') ?: (getenv('DB_USER') ?: 'YOUR_WASMER_DB_USER'));
-define('DB_PASS', getenv('WASMER_MYSQL_PASSWORD') ?: (getenv('DB_PASS') ?: 'YOUR_WASMER_DB_PASSWORD'));
+define("DB_HOST", getenv("WASMER_MYSQL_HOST") ?: (getenv("DB_HOST") ?: "YOUR_WASMER_DB_HOST"));
+define("DB_PORT", getenv("WASMER_MYSQL_PORT") ?: (getenv("DB_PORT") ?: "3306"));
+define("DB_NAME", getenv("WASMER_MYSQL_NAME") ?: (getenv("DB_NAME") ?: "YOUR_WASMER_DB_NAME"));
+define("DB_USER", getenv("WASMER_MYSQL_USER") ?: (getenv("DB_USER") ?: "YOUR_WASMER_DB_USER"));
+define("DB_PASS", getenv("WASMER_MYSQL_PASSWORD") ?: (getenv("DB_PASS") ?: "YOUR_WASMER_DB_PASSWORD"));
 
-define('SYS_SIMULATION_MODE', false);
-define('SECURE_SESSION_COOKIES', true);
+define("SYS_SIMULATION_MODE", false);
+define("SECURE_SESSION_COOKIES", true);
 
 /**
  * Universal Database Connection Engine (MySQL with SQLite Fallback)
  */
 function getSecureDBConnection() {
-    static  = null;
-    if ( !== null) {
-        return ;
+    static $pdo = null;
+    if ($pdo !== null) {
+        return $pdo;
     }
 
-     = DB_HOST;
-     = DB_PORT;
-     = DB_NAME;
-     = DB_USER;
-     = DB_PASS;
+    $host = DB_HOST;
+    $port = DB_PORT;
+    $dbname = DB_NAME;
+    $user = DB_USER;
+    $pass = DB_PASS;
 
     // 1. Try MySQL Connection if Host is configured (not placeholder)
-    if (!empty() &&  !== 'YOUR_WASMER_DB_HOST') {
+    if (!empty($host) && $host !== "YOUR_WASMER_DB_HOST") {
         try {
-             = "mysql:host={};port={};dbname={};charset=utf8mb4";
-             = [
+            $dsn = "mysql:host={$host};port={$port};dbname={$dbname};charset=utf8mb4";
+            $options = [
                 PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES   => false,
             ];
-             = new PDO(, , , );
-            return ;
-        } catch (PDOException ) {
-            error_log("MySQL Connection Exception: " . ->getMessage());
+            $pdo = new PDO($dsn, $user, $pass, $options);
+            return $pdo;
+        } catch (PDOException $e) {
+            error_log("MySQL Connection Exception: " . $e->getMessage());
         }
     }
 
     // 2. Universal Fallback: SQLite (Guarantees zero-downtime & zero server-connection failure)
     try {
-         = __DIR__ . '/data';
-        if (!is_dir()) {
-            @mkdir(, 0755, true);
+        $dataDir = __DIR__ . "/data";
+        if (!is_dir($dataDir)) {
+            @mkdir($dataDir, 0755, true);
         }
-         =  . '/tracker.sqlite';
-         = new PDO("sqlite:" . );
-        ->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        ->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+        $dbFile = $dataDir . "/tracker.sqlite";
+        $pdo = new PDO("sqlite:" . $dbFile);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 
-        initSQLiteSchema();
-        return ;
-    } catch (Exception ) {
-        error_log("SQLite Connection Exception: " . ->getMessage());
+        initSQLiteSchema($pdo);
+        return $pdo;
+    } catch (Exception $e) {
+        error_log("SQLite Connection Exception: " . $e->getMessage());
         return null;
     }
 }
@@ -74,7 +74,7 @@ function getSecureDBConnection() {
 /**
  * Compatibility Function Wrapper
  */
-if (!function_exists('getDBConnection')) {
+if (!function_exists("getDBConnection")) {
     function getDBConnection() {
         return getSecureDBConnection();
     }
@@ -83,15 +83,16 @@ if (!function_exists('getDBConnection')) {
 /**
  * Auto-initialize SQLite database schema & seed admin accounts
  */
-function initSQLiteSchema() {
+function initSQLiteSchema($pdo) {
+    if (!$pdo) return;
     try {
-        ->exec("
+        $pdo->exec("
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL,
-                role TEXT DEFAULT 'user',
-                status TEXT DEFAULT 'active',
+                role TEXT DEFAULT 'user\,
+                status TEXT DEFAULT 'active\,
                 mfa_secret TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             );
@@ -101,7 +102,7 @@ function initSQLiteSchema() {
                 user_id INTEGER NOT NULL,
                 description TEXT NOT NULL,
                 amount REAL NOT NULL,
-                currency TEXT DEFAULT 'USD',
+                currency TEXT DEFAULT 'USD\,
                 type TEXT NOT NULL,
                 category TEXT NOT NULL,
                 date DATETIME NOT NULL,
@@ -141,19 +142,19 @@ function initSQLiteSchema() {
         ");
 
         // Seed default admin accounts if empty
-         = ->query("SELECT COUNT(*) FROM users");
-        if ((int)->fetchColumn() === 0) {
-             = password_hash('admin123', PASSWORD_BCRYPT);
-             = password_hash('admin123', PASSWORD_BCRYPT);
-             = password_hash('user123', PASSWORD_BCRYPT);
+        $check = $pdo->query("SELECT COUNT(*) FROM users");
+        if ((int)$check->fetchColumn() === 0) {
+            $superPass = password_hash("admin123", PASSWORD_BCRYPT);
+            $adminPass = password_hash("admin123", PASSWORD_BCRYPT);
+            $userPass = password_hash("user123", PASSWORD_BCRYPT);
 
-             = ->prepare("INSERT INTO users (id, username, password_hash, role, status) VALUES (?, ?, ?, ?, 'active')");
-            ->execute([1, 'superadmin_cambodia', , 'super_admin']);
-            ->execute([2, 'admin_sophors', , 'admin']);
-            ->execute([3, 'khmer_user1', , 'user']);
+            $stmt = $pdo->prepare("INSERT INTO users (id, username, password_hash, role, status) VALUES (?, ?, ?, ?, 'active\)");
+            $stmt->execute([1, "superadmin_cambodia", $superPass, "super_admin"]);
+            $stmt->execute([2, "admin_sophors", $adminPass, "admin"]);
+            $stmt->execute([3, "khmer_user1", $userPass, "user"]);
         }
-    } catch (Exception ) {
-        error_log("SQLite schema init warning: " . ->getMessage());
+    } catch (Exception $e) {
+        error_log("SQLite schema init warning: " . $e->getMessage());
     }
 }
 ?>
