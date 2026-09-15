@@ -1,17 +1,16 @@
 <?php
 /**
- * index.php - Complete Production Financial Dashboard (v22.0)
+ * index.php - Complete Production Financial Dashboard (v15)
  * Part of the Khmer Payment Tracker and Financial Management System
  * 
  * Features:
  * - 3-Dots Action Dropdown Menu for Transaction Table
- * - Real-time Chart.js Analytics (Income vs Expense Bar Chart, Category Doughnut Chart with Center Text Overlay)
- * - Daily Spending Limit Enforcement ($5 / 20,000 KHR Alert Warning)
+ * - Real-time Chart.js Analytics (Income vs Expense Bar Chart, Category Doughnut Chart)
  * - Exchange Rate Converter ($1 USD = X KHR) & Unified Total Balance Calculation
  * - Category Budget Tracking & Threshold Warning Banners
  * - Advanced Date Range Filtering (From Date - To Date)
  * - Audit Log Viewer for Admins
- * - Mobile-first responsive layout with Hamburger Navigation Toggle & Dark Mode Support
+ * - Mobile-first responsive layout with Hamburger Navigation Toggle
  */
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -28,7 +27,7 @@ $username = $_SESSION['username'] ?? 'User';
 $role = $_SESSION['role'] ?? 'user';
 
 // Categories list for form datalist
-$categories = ['ម្ហូបអាហារ','បាយព្រឹក','បាយថ្ងៃ','បាយល្ងាច', 'សម្លៀកបំពាក់', 'ការធ្វើដំណើរ', 'កម្សាន្ត', 'ផ្សេងៗ'];
+$categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពាក់', 'ការធ្វើដំណើរ', 'វិក្កយបត្រ', 'ការអប់រំ', 'សុខភាព', 'កម្សាន្ត', 'ផ្សេងៗ'];
 ?>
 <!DOCTYPE html>
 <html lang="km">
@@ -37,8 +36,7 @@ $categories = ['ម្ហូបអាហារ','បាយព្រឹក','ប�
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ប្រព័ន្ធគ្រប់គ្រងហិរញ្ញវត្ថុ - Production Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@300;400;600;700;800&family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="admin-style.css?v=22.0">
-    <link rel="icon" type="image/x-icon" href="icon.png">
+    <link rel="stylesheet" href="admin-style.css?v=26.0">
     <!-- Chart.js Engine for Visual Analytics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
@@ -73,7 +71,7 @@ $categories = ['ម្ហូបអាហារ','បាយព្រឹក','ប�
             <span class="bar"></span>
         </button>
         <div class="navbar-nav" id="navbar-menu">
-            <a href="index.php" class="active">Dashboard</a>
+            <a href="index.php">Dashboard</a>
             <a href="profile.php">ប្រវត្តិរូបផ្ទាល់ខ្លួន</a>
             <?php if ($role === 'super_admin' || $role === 'admin'): ?>
                 <a href="archive-history.php">បណ្ណសារសវនកម្ម (History)</a>
@@ -166,7 +164,7 @@ $categories = ['ម្ហូបអាហារ','បាយព្រឹក','ប�
 
         </div>
 
-        <!-- 3. Category Budget & Daily Spending Threshold Alert Banners -->
+        <!-- 3. Category Budget Threshold Alert Banners -->
         <div id="budget-alerts-container" class="budget-alerts-container"></div>
 
         <!-- 4. Visual Analytics Section (Chart.js Section) -->
@@ -383,6 +381,6 @@ $categories = ['ម្ហូបអាហារ','បាយព្រឹក','ប�
         </div>
     </div>
 
-    <script src="admin-integration.js?v=22.0"></script>
+    <script src="admin-integration.js?v=26.0"></script>
 </body>
 </html>

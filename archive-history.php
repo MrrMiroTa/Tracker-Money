@@ -1,46 +1,45 @@
 <?php
 /**
- * archive-history.php - Admin-Only Audit Archive with Fully Responsive Top Navigation Bar
+ * archive-history.php - Production Audit History & Original Transaction Archives Page
  * Part of the Khmer Payment Tracker and Financial Management System
  * 
- * Enforces strict role guard (Admins/Super Admins only) and displays the original 
- * vs. modified values for all transactions updated or deleted by users.
+ * B2B Fintech SaaS Design with Dark Mode Support & Interactive Restore Workflow
  */
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-require_once 'config.php';
-
-// --- ១. ត្រួតពិនិត្យសន្តិសុខ និងសិទ្ធិចូលមើល (Admin Guard) ---
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['role'])) {
+// Authentication Guard
+if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit;
 }
 
-$current_role = $_SESSION['role'];
-if ($current_role !== 'super_admin' && $current_role !== 'admin') {
-    // ប្រសិនបើជា User ធម្មតា គ្មានសិទ្ធិបើកទំព័រនេះទេ បណ្តេញចេញទៅ Dashboard
-    header("Location: index.php");
-    exit;
-}
-
-$username = $_SESSION['username'] ?? 'Unknown';
+$username = $_SESSION['username'] ?? 'User';
+$role = $_SESSION['role'] ?? 'user';
 ?>
 <!DOCTYPE html>
 <html lang="km">
 <head>
-    <meta charset="UTF-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>បណ្ណសារសវនកម្មប្រតិបត្តិការ - Admin Control Panel</title>
-    <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@400;600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet"/>
-    <link rel="stylesheet" href="admin-style.css"/>
-    <link rel="icon" href="icon.png">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>បណ្ណសារសវនកម្ម - Financial Tracker B2B SaaS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="admin-style.css?v=26.0">
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.documentElement.classList.add('dark-mode');
+                document.addEventListener('DOMContentLoaded', () => document.body.classList.add('dark-mode'));
+            }
+        })();
+    </script>
 </head>
 <body>
 
-    <!-- Navigation Bar with Burger Toggle -->
+    <!-- Sticky Navigation Bar with Burger Toggle -->
     <nav class="navbar">
         <div class="navbar-brand">
             <span>📊 ប្រព័ន្ធគ្រប់គ្រងហិរញ្ញវត្ថុ</span>
@@ -53,25 +52,89 @@ $username = $_SESSION['username'] ?? 'Unknown';
         <div class="navbar-nav" id="navbar-menu">
             <a href="index.php">Dashboard</a>
             <a href="profile.php">ប្រវត្តិរូបផ្ទាល់ខ្លួន</a>
-            <?php if ($current_role === 'super_admin' || $current_role === 'admin'): ?>
-                <a href="archive-history.php" class="active">បណ្ណសារសវនកម្ម (History)</a>
-            <?php endif; ?>
+            <a href="archive-history.php" class="active">បណ្ណសារសវនកម្ម (History)</a>
             <a href="pdf.php" target="_blank">ទាញយក PDF</a>
             <a href="export-csv.php" target="_blank">នាំចេញ CSV</a>
+            
+            <button id="dark-mode-toggle" onclick="toggleTheme()" class="btn" style="background: rgba(255,255,255,0.15); color: white; border: none; padding: 6px 14px; border-radius: 20px; cursor: pointer; font-size: 0.88rem; display: inline-flex; align-items: center; gap: 6px;">
+                🌙 Dark Mode
+            </button>
             <a href="#" onclick="logoutUser(); return false;" class="logout-btn">ចាកចេញ</a>
         </div>
     </nav>
 
     <div class="dashboard-container">
-        <!-- Page Header -->
+
+        <!-- Welcome Banner / Header -->
         <div class="welcome-banner">
-            <h1>📂 បណ្ណសារសវនកម្មប្រតិបត្តិការ (Audit History Log)</h1>
-            <p style="margin-top: 0.25rem;">តាមដានរាល់ការកែប្រែ និងការលុបទិន្នន័យប្រតិបត្តិការហិរញ្ញវត្ថុរបស់គណនីទាំងអស់ក្នុងប្រព័ន្ធ</p>
+            <div>
+                <h1>📜 បណ្ណសារសវនកម្មប្រតិបត្តិការ (Audit History Logs)</h1>
+                <p>តាមដានរាល់ប្រវត្តិការកែប្រែ ការលុបទិន្នន័យ និងសកម្មភាពសន្តិសុខនៃគណនីទាំងអស់ក្នុងប្រព័ន្ធ។</p>
+            </div>
+            <span class="role-badge-pill">អ្នកប្រើប្រាស់៖ <?php echo htmlspecialchars($username); ?> (<?php echo htmlspecialchars(strtoupper($role)); ?>)</span>
         </div>
 
-        <!-- History Card -->
+        <!-- Metric Summary Cards for Archives -->
+        <div class="metrics-grid">
+            <div class="metric-card metric-card-expense">
+                <div class="metric-header">
+                    <h3>🗑️ ប្រតិបត្តិការដែលបានលុប (Deleted)</h3>
+                    <div class="metric-icon-box icon-expense">🗑️</div>
+                </div>
+                <div class="currency-row">
+                    <span class="currency-label">ចំនួនសរុប៖</span>
+                    <span class="currency-value" id="metric-deleted-count" style="color: var(--danger);">0</span>
+                </div>
+            </div>
+
+            <div class="metric-card metric-card-balance">
+                <div class="metric-header">
+                    <h3>📝 ប្រវត្តិធ្វើបច្ចុប្បន្នភាព (Modified Logs)</h3>
+                    <div class="metric-icon-box icon-balance">📝</div>
+                </div>
+                <div class="currency-row">
+                    <span class="currency-label">ចំនួនកែប្រែ៖</span>
+                    <span class="currency-value" id="metric-modified-count" style="color: var(--primary);">0</span>
+                </div>
+            </div>
+
+            <div class="metric-card metric-card-income">
+                <div class="metric-header">
+                    <h3>🛡️ សកម្មភាពសវនកម្មសរុប (Total Logs)</h3>
+                    <div class="metric-icon-box icon-income">🛡️</div>
+                </div>
+                <div class="currency-row">
+                    <span class="currency-label">កំណត់ត្រាសរុប៖</span>
+                    <span class="currency-value" id="metric-total-audit" style="color: var(--success);">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Card Section -->
         <div class="card">
-            <h2 class="card-title">📜 កំណត់ត្រាបម្រុងទុកទិន្នន័យដើម (Original Transaction Archives)</h2>
+            <div class="table-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 10px;">
+                <h2 style="margin: 0; font-size: 1.25rem; font-weight: 800; color: var(--dark);">📜 កំណត់ត្រាបម្រុងទុកទិន្នន័យដើម (Original Transaction Archives)</h2>
+                <button class="btn btn-secondary" style="padding: 6px 14px; font-size: 0.88rem;" onclick="loadArchiveHistoryTable(1)">🔄 Refresh Data</button>
+            </div>
+
+            <!-- Date & Action Filter Bar -->
+            <div class="date-range-bar">
+                <label>ស្វែងរកតាមចម្រោះ៖</label>
+                <span>ចាប់ពី៖</span>
+                <input type="date" id="archive-filter-from">
+                <span>ដល់៖</span>
+                <input type="date" id="archive-filter-to">
+                <select id="archive-filter-action" style="padding: 6px 10px; border-radius: 6px; border: 1px solid var(--gray-border); font-family: inherit; font-size: 0.88rem;">
+                    <option value="">ប្រភេទសកម្មភាពទាំងអស់</option>
+                    <option value="DELETE">DELETE (លុប)</option>
+                    <option value="UPDATE">UPDATE (កែប្រែ)</option>
+                    <option value="RESTORE">RESTORE (ស្តារឡើងវិញ)</option>
+                    <option value="CREATE">CREATE (បង្កើត)</option>
+                </select>
+                <button class="btn btn-secondary" style="padding: 6px 14px; font-size: 0.85rem;" onclick="loadArchiveHistoryTable(1)">🔍 ចម្រោះ</button>
+            </div>
+
+            <!-- Table Wrapper -->
             <div class="table-responsive">
                 <table class="transaction-table">
                     <thead>
@@ -81,40 +144,26 @@ $username = $_SESSION['username'] ?? 'Unknown';
                             <th>ប្រភេទសកម្មភាព</th>
                             <th>ទិន្នន័យដើម (Original Value)</th>
                             <th>ទិន្នន័យថ្មី (New Value)</th>
-                            <th style="text-align: center;">សកម្មភាព</th>
                             <th>អ្នកអនុវត្ត</th>
+                            <th style="text-align: center;">សកម្មភាព</th>
                         </tr>
                     </thead>
-                    <tbody id="history-table-body">
+                    <tbody id="archive-history-tbody">
                         <tr>
-                            <td colspan="7" style="text-align: center; padding: 30px; color: #4b5563;">កំពុងទាញយកទិន្នន័យប្រវត្តិសវនកម្ម...</td>
+                            <td colspan="7" style="text-align: center; padding: 25px; color: #6b7280; font-weight: 600;">កំពុងទាញយកទិន្នន័យប្រវត្តិសវនកម្ម...</td>
                         </tr>
                     </tbody>
+                    <tbody id="archive-table-body" style="display: none;"></tbody>
+                    <tbody id="audit-history-tbody" style="display: none;"></tbody>
                 </table>
             </div>
+
+            <!-- Pagination Controls -->
+            <div id="archive-pagination-controls"></div>
         </div>
+
     </div>
 
-    <script src="admin-integration.js"></script>
-    <script>
-        // Burger menu toggle logic
-        document.addEventListener('DOMContentLoaded', () => {
-            const toggleBtn = document.getElementById('navbar-toggle-btn');
-            const menu = document.getElementById('navbar-menu');
-            if (toggleBtn && menu) {
-                toggleBtn.addEventListener('click', () => {
-                    toggleBtn.classList.toggle('active');
-                    menu.classList.toggle('active');
-                });
-            }
-        });
-
-        // Autoload audit history log
-        document.addEventListener('DOMContentLoaded', () => {
-            if (typeof loadAuditHistoryTable === 'function') {
-                loadAuditHistoryTable();
-            }
-        });
-    </script>
+    <script src="admin-integration.js?v=26.0"></script>
 </body>
 </html>

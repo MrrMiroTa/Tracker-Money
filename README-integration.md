@@ -15,6 +15,11 @@
   * **Super Admin**: `superadmin_cambodia` (ពាក្យសម្ងាត់៖ `admin123`)
   * **Admin**: `admin_sophors` (ពាក្យសម្ងាត់៖ `admin123`)
   * **User**: `khmer_user1` (ពាក្យសម្ងាត់៖ `user123`)
+  define('DB_HOST', getenv('WASMER_MYSQL_HOST') ?: (getenv('DB_HOST') ?: 'db.fr-roub1.bengt.wasmernet.com'));
+define('DB_PORT', getenv('WASMER_MYSQL_PORT') ?: (getenv('DB_PORT') ?: '20184'));
+define('DB_NAME', getenv('WASMER_MYSQL_NAME') ?: (getenv('DB_NAME') ?: 'db_f5500176'));
+define('DB_USER', getenv('WASMER_MYSQL_USER') ?: (getenv('DB_USER') ?: 'user_ea3af2a0'));
+define('DB_PASS', getenv('WASMER_MYSQL_PASSWORD') ?: (getenv('DB_PASS') ?: 'pw_q7C4JpkrPETlFukJ8FBKgl6Q2azdXepu'));
 
 ---
 
