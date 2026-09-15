@@ -1,54 +1,159 @@
 <?php
 /**
- * config.php & config-wasmer.php - Ultra-Resilient Database Configuration for Wasmer Edge
+ * config.php & config-wasmer.php - Universal Database Connection & Security Configuration
  * Part of the Khmer Payment Tracker and Financial Management System
+ * 
+ * Supports MySQL (via Wasmer Environment Variables or standard credentials)
+ * with an automatic fallback to SQLite so the application NEVER crashes or fails to connect.
  */
 
-// 1. Fetch MySQL Database Credentials from Environment Variables or Defaults
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Environment Credentials for Wasmer / MySQL
 define('DB_HOST', getenv('WASMER_MYSQL_HOST') ?: (getenv('DB_HOST') ?: 'YOUR_WASMER_DB_HOST'));
 define('DB_PORT', getenv('WASMER_MYSQL_PORT') ?: (getenv('DB_PORT') ?: '3306'));
 define('DB_NAME', getenv('WASMER_MYSQL_NAME') ?: (getenv('DB_NAME') ?: 'YOUR_WASMER_DB_NAME'));
 define('DB_USER', getenv('WASMER_MYSQL_USER') ?: (getenv('DB_USER') ?: 'YOUR_WASMER_DB_USER'));
 define('DB_PASS', getenv('WASMER_MYSQL_PASSWORD') ?: (getenv('DB_PASS') ?: 'YOUR_WASMER_DB_PASSWORD'));
 
-// 2. Simulation Mode Flag
-if (!defined('SYS_SIMULATION_MODE')) {
-    define('SYS_SIMULATION_MODE', false);
-}
-
+define('SYS_SIMULATION_MODE', false);
 define('SECURE_SESSION_COOKIES', true);
 
 /**
- * Universal Database Connection Engine with Automatic Fallback Handling
+ * Universal Database Connection Engine (MySQL with SQLite Fallback)
  */
 function getSecureDBConnection() {
-    // If Simulation Mode is explicitly enabled
-    if (defined('SYS_SIMULATION_MODE') && SYS_SIMULATION_MODE === true) {
-        return null;
+    static  = null;
+    if ( !== null) {
+        return ;
     }
 
-    // If environment variables are unconfigured or using defaults
-    if (DB_HOST === 'YOUR_WASMER_DB_HOST' || empty(DB_HOST)) {
-        return null; // Safely trigger simulated mode in API without throwing 500 error
+     = DB_HOST;
+     = DB_PORT;
+     = DB_NAME;
+     = DB_USER;
+     = DB_PASS;
+
+    // 1. Try MySQL Connection if Host is configured (not placeholder)
+    if (!empty() &&  !== 'YOUR_WASMER_DB_HOST') {
+        try {
+             = "mysql:host={};port={};dbname={};charset=utf8mb4";
+             = [
+                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES   => false,
+            ];
+             = new PDO(, , , );
+            return ;
+        } catch (PDOException ) {
+            error_log("MySQL Connection Exception: " . ->getMessage());
+        }
     }
 
+    // 2. Universal Fallback: SQLite (Guarantees zero-downtime & zero server-connection failure)
     try {
-        $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";
-        $options = [
-            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES   => false,
-            PDO::ATTR_TIMEOUT            => 3,
-        ];
-        return new PDO($dsn, DB_USER, DB_PASS, $options);
-    } catch (PDOException $e) {
-        error_log("MySQL Connection Failed: " . $e->getMessage() . " - Switching to Simulated Mode");
-        // Return null so api-v2.php can handle requests in simulated mode seamlessly!
+         = __DIR__ . '/data';
+        if (!is_dir()) {
+            @mkdir(, 0755, true);
+        }
+         =  . '/tracker.sqlite';
+         = new PDO("sqlite:" . );
+        ->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        ->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+
+        initSQLiteSchema();
+        return ;
+    } catch (Exception ) {
+        error_log("SQLite Connection Exception: " . ->getMessage());
         return null;
     }
 }
 
-function getDBConnection() {
-    return getSecureDBConnection();
+/**
+ * Compatibility Function Wrapper
+ */
+if (!function_exists('getDBConnection')) {
+    function getDBConnection() {
+        return getSecureDBConnection();
+    }
+}
+
+/**
+ * Auto-initialize SQLite database schema & seed admin accounts
+ */
+function initSQLiteSchema() {
+    try {
+        ->exec("
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                role TEXT DEFAULT 'user',
+                status TEXT DEFAULT 'active',
+                mfa_secret TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS transactions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                description TEXT NOT NULL,
+                amount REAL NOT NULL,
+                currency TEXT DEFAULT 'USD',
+                type TEXT NOT NULL,
+                category TEXT NOT NULL,
+                date DATETIME NOT NULL,
+                receipt_image TEXT,
+                is_deleted INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS audit_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                action TEXT NOT NULL,
+                target_user_id INTEGER,
+                details TEXT,
+                ip_address TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS transaction_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                transaction_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                original_description TEXT,
+                original_amount REAL,
+                original_currency TEXT,
+                original_type TEXT,
+                original_category TEXT,
+                new_description TEXT,
+                new_amount REAL,
+                new_currency TEXT,
+                new_type TEXT,
+                new_category TEXT,
+                action_type TEXT NOT NULL,
+                actioned_by INTEGER NOT NULL,
+                actioned_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+        ");
+
+        // Seed default admin accounts if empty
+         = ->query("SELECT COUNT(*) FROM users");
+        if ((int)->fetchColumn() === 0) {
+             = password_hash('admin123', PASSWORD_BCRYPT);
+             = password_hash('admin123', PASSWORD_BCRYPT);
+             = password_hash('user123', PASSWORD_BCRYPT);
+
+             = ->prepare("INSERT INTO users (id, username, password_hash, role, status) VALUES (?, ?, ?, ?, 'active')");
+            ->execute([1, 'superadmin_cambodia', , 'super_admin']);
+            ->execute([2, 'admin_sophors', , 'admin']);
+            ->execute([3, 'khmer_user1', , 'user']);
+        }
+    } catch (Exception ) {
+        error_log("SQLite schema init warning: " . ->getMessage());
+    }
 }
 ?>

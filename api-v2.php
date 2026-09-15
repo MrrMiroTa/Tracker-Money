@@ -101,7 +101,7 @@ switch ($request_method) {
             handleGetUsers($db, $is_simulated);
         } elseif ($action === 'approvals') {
             handleGetPendingApprovals($db, $is_simulated);
-        } elseif ($action === 'audit_logs' || $action === 'get_audit_logs') {
+        } elseif ($action === 'audit_logs' || $action === 'get_audit_logs' || $action === 'get_audit_history') {
             handleGetAuditLogs($db, $is_simulated);
         } else {
             http_response_code(400);
@@ -190,8 +190,8 @@ function handleGetAuditLogs($db, $simulated) {
     
     if ($simulated) {
         $logs = [
-            ["id" => 1, "username" => "admin_sophors", "operator" => "admin_sophors", "action" => "REQUEST_ADD_ADMIN", "details" => "Requested promotion for user ID: 3", "ip_address" => "127.0.0.1", "created_at" => "2026-08-24 10:00:00"],
-            ["id" => 2, "username" => "superadmin_cambodia", "operator" => "superadmin_cambodia", "action" => "CREATE_USER", "details" => "Created new user account 'khmer_user1'", "ip_address" => "127.0.0.1", "created_at" => "2026-08-25 11:15:00"]
+            ["id" => 1, "username" => "admin_sophors", "operator" => "admin_sophors", "operator_name" => "admin_sophors", "action" => "REQUEST_ADD_ADMIN", "action_type" => "UPDATE", "details" => "Requested promotion for user ID: 3", "original_value" => "Role: USER", "new_value" => "Role: ADMIN", "ip_address" => "127.0.0.1", "created_at" => "2026-08-24 10:00:00"],
+            ["id" => 2, "username" => "superadmin_cambodia", "operator" => "superadmin_cambodia", "operator_name" => "superadmin_cambodia", "action" => "CREATE_USER", "action_type" => "CREATE", "details" => "Created new user account 'khmer_user1'", "original_value" => "-", "new_value" => "User: khmer_user1", "ip_address" => "127.0.0.1", "created_at" => "2026-08-25 11:15:00"]
         ];
         echo json_encode(["status" => "success", "data" => $logs]);
         return;
@@ -199,7 +199,7 @@ function handleGetAuditLogs($db, $simulated) {
 
     try {
         $stmt = $db->query("
-            SELECT l.id, COALESCE(u.username, 'System') as username, COALESCE(u.username, 'System') as operator, l.action, l.details, l.ip_address, l.created_at 
+            SELECT l.id, COALESCE(u.username, 'System') as username, COALESCE(u.username, 'System') as operator_name, l.action, l.details, l.ip_address, l.created_at 
             FROM audit_logs l
             LEFT JOIN users u ON l.user_id = u.id
             ORDER BY l.created_at DESC
@@ -268,14 +268,14 @@ function handleCreateUser($db, $simulated) {
     $minLength = ($role === 'super_admin' || $role === 'admin') ? 12 : 8;
     if (strlen($password) < $minLength) {
         http_response_code(400);
-        echo json_encode(["status" => "error", "message" => "ពាក្យសម្ងាត់សម្រាប់តួនាទី " . strtoupper($role) . " ត្រូវតែមានប្រវែងយ៉ាងតិច $minLength ខ្ទង់。"]);
+        echo json_encode(["status" => "error", "message" => "ពាក្យសម្ងាត់សម្រាប់តួនាទី " . strtoupper($role) . " ត្រូវតែមានប្រវែងយ៉ាងតិច {$minLength} ខ្ទង់។"]);
         return;
     }
 
     if ($simulated) {
         echo json_encode([
             "status" => "success",
-            "message" => "បង្កើតគណនី '$username' (តួនាទី: " . strtoupper($role) . ") ជោគជ័យ!"
+            "message" => "បង្កើតគណនី '{$username}' (តួនាទី: " . strtoupper($role) . ") ជោគជ័យ!"
         ]);
         return;
     }
@@ -352,7 +352,7 @@ function handleResetPassword($db, $simulated) {
         $minLength = ($target_role === 'super_admin' || $target_role === 'admin') ? 12 : 8;
         if (strlen($new_password) < $minLength) {
             http_response_code(400);
-            echo json_encode(["status" => "error", "message" => "ពាក្យសម្ងាត់សម្រាប់តួនាទី " . strtoupper($target_role) . " ត្រូវតែមានប្រវែងយ៉ាងតិច $minLength ខ្ទង់。"]);
+            echo json_encode(["status" => "error", "message" => "ពាក្យសម្ងាត់សម្រាប់តួនាទី " . strtoupper($target_role) . " ត្រូវតែមានប្រវែងយ៉ាងតិច {$minLength} ខ្ទង់។"]);
             return;
         }
 
