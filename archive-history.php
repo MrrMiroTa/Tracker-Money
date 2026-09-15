@@ -26,7 +26,7 @@ $role = $_SESSION['role'] ?? 'user';
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>បណ្ណសារសវនកម្ម - Financial Tracker B2B SaaS</title>
     <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="admin-style.css?v=26.0">
+    <link rel="stylesheet" href="admin-style.css?v=27.0">
     <script>
         (function() {
             const savedTheme = localStorage.getItem('theme');
@@ -63,7 +63,7 @@ $role = $_SESSION['role'] ?? 'user';
         </div>
     </nav>
 
-    <div class="dashboard-container">
+    <div class="dashboard-container archive-history-page">
 
         <!-- Welcome Banner / Header -->
         <div class="welcome-banner">

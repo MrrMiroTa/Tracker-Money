@@ -1059,3 +1059,404 @@ body.dark-mode .action-menu-item.delete-btn:hover {
         border-radius: var(--radius-lg) !important;
     }
 }
+
+/* --- Modern editorial refresh --- */
+:root {
+    --primary: #d7194b;
+    --primary-dark: #b5123d;
+    --primary-light: #fff0f4;
+    --success: #198754;
+    --success-light: #edf8f1;
+    --danger: #c9344f;
+    --danger-light: #fff1f3;
+    --dark: #1f1f1f;
+    --gray-bg: #f7f7f5;
+    --gray-border: #e7e5e1;
+    --gray-text: #74716d;
+    --white: #ffffff;
+    --radius-xl: 24px;
+    --radius-lg: 18px;
+    --radius-md: 12px;
+    --shadow-card: 0 10px 30px rgba(35, 31, 32, 0.06);
+    --shadow-hover: 0 16px 34px rgba(35, 31, 32, 0.1);
+}
+
+body {
+    background: var(--gray-bg);
+    color: var(--dark);
+    line-height: 1.5;
+}
+
+.navbar {
+    background: rgba(255, 255, 255, 0.94);
+    color: var(--dark);
+    min-height: 72px;
+    padding: 0.85rem clamp(1rem, 4vw, 3.5rem);
+    border-bottom: 1px solid var(--gray-border);
+    box-shadow: 0 2px 18px rgba(35, 31, 32, 0.05);
+    backdrop-filter: blur(16px);
+}
+
+.navbar-brand {
+    color: var(--dark);
+    font-size: 1.05rem;
+    letter-spacing: -0.02em;
+}
+
+.navbar-brand span {
+    filter: none;
+}
+
+.navbar-nav {
+    gap: 0.3rem;
+}
+
+.navbar-nav a {
+    color: #605d59;
+    font-size: 0.88rem;
+    padding: 0.55rem 0.8rem;
+    border-radius: 999px;
+}
+
+.navbar-nav a:hover,
+.navbar-nav a.active {
+    color: var(--dark);
+    background: #f0efec;
+    transform: none;
+}
+
+.navbar-nav .btn {
+    background: #f0efec !important;
+    color: var(--dark) !important;
+    border: 1px solid var(--gray-border) !important;
+}
+
+.logout-btn {
+    background: var(--primary) !important;
+    color: #fff !important;
+    box-shadow: none;
+}
+
+.logout-btn:hover {
+    background: var(--primary-dark) !important;
+    box-shadow: none;
+}
+
+.dashboard-container,
+.profile-container {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: clamp(1.2rem, 4vw, 3rem) clamp(1rem, 4vw, 2.5rem);
+}
+
+.welcome-banner {
+    background: transparent;
+    padding: 0.5rem 0 1.25rem;
+    border: 0;
+    box-shadow: none;
+}
+
+.welcome-banner h1 {
+    font-size: clamp(1.55rem, 3vw, 2.25rem);
+    letter-spacing: -0.045em;
+}
+
+.welcome-banner p {
+    color: var(--gray-text);
+}
+
+.role-badge-pill {
+    background: var(--white);
+    color: var(--primary);
+    border-color: #f4c5d1;
+    box-shadow: var(--shadow-sm);
+}
+
+.exchange-rate-widget {
+    background: var(--dark);
+    border: 0;
+    border-radius: var(--radius-xl);
+    box-shadow: none;
+    padding: 1.2rem 1.5rem;
+}
+
+.exchange-rate-widget::before {
+    background: radial-gradient(circle, rgba(215, 25, 75, 0.2) 0%, transparent 70%);
+}
+
+.metrics-grid,
+.charts-grid,
+.main-content-grid {
+    gap: 1rem;
+}
+
+.metric-card,
+.chart-card,
+.card,
+.admin-control-bar,
+.profile-card {
+    border: 1px solid var(--gray-border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-card);
+}
+
+.metric-card {
+    padding: 1.35rem 1.5rem;
+    border-top: 0;
+}
+
+.metric-card:hover {
+    transform: translateY(-2px);
+    border-color: #d7d3ce;
+}
+
+.metric-card-balance { border-left: 4px solid var(--primary); }
+.metric-card-income { border-left: 4px solid var(--success); }
+.metric-card-expense { border-left: 4px solid var(--danger); }
+
+.metric-header h3,
+.chart-header,
+.form-title {
+    letter-spacing: -0.02em;
+}
+
+.metric-icon-box {
+    border-radius: 14px;
+}
+
+.chart-card,
+.card {
+    padding: clamp(1.15rem, 2vw, 1.5rem);
+}
+
+.chart-header,
+.form-title {
+    border-bottom-color: var(--gray-border);
+}
+
+.admin-control-bar {
+    background: #fffaf0;
+    border-color: #f1e4c8;
+    box-shadow: none;
+}
+
+.form-group input,
+.form-group select,
+.form-control,
+.date-range-bar input[type="date"] {
+    background: #fff;
+    border-color: #d8d5d0;
+    border-radius: 12px;
+    min-height: 44px;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-control:focus,
+.date-range-bar input[type="date"]:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(215, 25, 75, 0.1);
+}
+
+.btn-submit {
+    background: var(--primary);
+    border-radius: 999px;
+    box-shadow: none;
+}
+
+.btn-submit:hover {
+    background: var(--primary-dark);
+    box-shadow: none;
+    transform: translateY(-1px);
+}
+
+.date-range-bar {
+    background: #fbfaf8;
+    border-color: var(--gray-border);
+    border-radius: 14px;
+}
+
+.date-range-bar select {
+    min-height: 38px;
+    padding: 6px 12px !important;
+    border: 1px solid #d8d5d0 !important;
+    border-radius: 10px !important;
+    background: #fff;
+    color: var(--dark);
+}
+
+.btn-secondary {
+    background: #fff !important;
+    color: var(--dark) !important;
+    border: 1px solid var(--gray-border) !important;
+    border-radius: 999px !important;
+    box-shadow: none !important;
+    transition: var(--transition);
+}
+
+.btn-secondary:hover {
+    background: var(--dark) !important;
+    color: #fff !important;
+    border-color: var(--dark) !important;
+    transform: translateY(-1px);
+}
+
+.table-header-row h2 {
+    letter-spacing: -0.03em;
+}
+
+.archive-history-page .card {
+    padding: clamp(1.15rem, 3vw, 1.75rem);
+}
+
+.table-responsive {
+    border-color: var(--gray-border);
+    border-radius: 16px;
+}
+
+.transaction-table th {
+    background: #fbfaf8;
+    color: #77736e;
+    border-bottom-color: var(--gray-border);
+}
+
+.transaction-table td {
+    border-bottom-color: var(--gray-border);
+}
+
+.transaction-table tbody tr:hover {
+    background: #fffafc;
+}
+
+.profile-container {
+    max-width: 1100px;
+}
+
+.profile-hero-card {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    background: var(--dark);
+    color: #fff;
+    border-radius: var(--radius-xl);
+    padding: clamp(1.3rem, 3vw, 2rem);
+    margin-bottom: 1rem;
+    box-shadow: var(--shadow-card);
+}
+
+.profile-avatar-box {
+    width: 64px;
+    height: 64px;
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.12);
+    font-size: 1.8rem;
+}
+
+.profile-hero-info h2 {
+    margin: 0;
+    letter-spacing: -0.03em;
+}
+
+.profile-hero-info p {
+    margin: 0.25rem 0 0;
+    color: #c8c4c0;
+}
+
+.profile-badges-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.8rem;
+}
+
+.profile-stat-pill {
+    padding: 0.35rem 0.65rem;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 999px;
+    color: #e7e4e0;
+    font-size: 0.78rem;
+}
+
+.profile-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.profile-card {
+    background: var(--white);
+    padding: clamp(1.15rem, 2vw, 1.5rem);
+}
+
+.profile-card h3 {
+    margin-top: 0;
+    letter-spacing: -0.02em;
+}
+
+body.dark-mode .navbar {
+    background: rgba(30, 41, 59, 0.94);
+    color: #f8fafc;
+}
+
+body.dark-mode .navbar-brand,
+body.dark-mode .navbar-nav a {
+    color: #f8fafc;
+}
+
+body.dark-mode .navbar-nav a:hover,
+body.dark-mode .navbar-nav a.active,
+body.dark-mode .navbar-nav .btn {
+    background: #334155 !important;
+    color: #f8fafc !important;
+}
+
+body.dark-mode .profile-hero-card,
+body.dark-mode .exchange-rate-widget {
+    background: #020617;
+}
+
+body.dark-mode .admin-control-bar,
+body.dark-mode .date-range-bar,
+body.dark-mode .transaction-table th {
+    background: #172033 !important;
+    border-color: #334155;
+}
+
+body.dark-mode .date-range-bar select,
+body.dark-mode .btn-secondary {
+    background: #1e293b !important;
+    color: #f8fafc !important;
+    border-color: #475569 !important;
+}
+
+@media (max-width: 768px) {
+    .navbar {
+        min-height: 64px;
+    }
+
+    .navbar-nav {
+        background: #fff;
+        border-bottom: 1px solid var(--gray-border);
+    }
+
+    .navbar-nav a,
+    .navbar-nav button {
+        color: var(--dark) !important;
+        background: #f7f7f5 !important;
+    }
+
+    .profile-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-hero-card {
+        align-items: flex-start;
+    }
+
+    .date-range-bar select {
+        width: 100%;
+    }
+}
