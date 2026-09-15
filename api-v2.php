@@ -2,12 +2,6 @@
 /**
  * api-v2.php - Unified User & Administrative Authorization Management API
  * Part of the Khmer Payment Tracker and Financial Management System
- * 
- * Features:
- * - User Authentication (Login, Logout)
- * - User Management (Create User, Reset Password, List Users, Delete User)
- * - Security Audit Logging (get_audit_logs / audit_logs)
- * - Role-Based Access Control (RBAC) Enforcement
  */
 
 header("Content-Type: application/json; charset=UTF-8");
@@ -274,7 +268,7 @@ function handleCreateUser($db, $simulated) {
     $minLength = ($role === 'super_admin' || $role === 'admin') ? 12 : 8;
     if (strlen($password) < $minLength) {
         http_response_code(400);
-        echo json_encode(["status" => "error", "message" => "ពាក្យសម្ងាត់សម្រាប់តួនាទី " . strtoupper($role) . " ត្រូវតែមានប្រវែងយ៉ាងតិច " . $minLength . " ខ្ទង់។"]);
+        echo json_encode(["status" => "error", "message" => "ពាក្យសម្ងាត់សម្រាប់តួនាទី " . strtoupper($role) . " ត្រូវតែមានប្រវែងយ៉ាងតិច $minLength ខ្ទង់。"]);
         return;
     }
 
@@ -309,7 +303,7 @@ function handleCreateUser($db, $simulated) {
     } catch (PDOException $e) {
         error_log("Database error creating user: " . $e->getMessage());
         http_response_code(500);
-        echo json_encode(["status" => "error", "message" => "បរាជ័យក្នុងការបង្កើតគណនីថ្មីក្នុង Database! " . $e->getMessage()]);
+        echo json_encode(["status" => "error", "message" => "បរាជ័យក្នុងការបង្កើតគណនីថ្មីក្នុង Database!"]);
     }
 }
 
@@ -358,7 +352,7 @@ function handleResetPassword($db, $simulated) {
         $minLength = ($target_role === 'super_admin' || $target_role === 'admin') ? 12 : 8;
         if (strlen($new_password) < $minLength) {
             http_response_code(400);
-            echo json_encode(["status" => "error", "message" => "ពាក្យសម្ងាត់សម្រាប់តួនាទី " . strtoupper($target_role) . " ត្រូវតែមានប្រវែងយ៉ាងតិច " . $minLength . " ខ្ទង់。"]);
+            echo json_encode(["status" => "error", "message" => "ពាក្យសម្ងាត់សម្រាប់តួនាទី " . strtoupper($target_role) . " ត្រូវតែមានប្រវែងយ៉ាងតិច $minLength ខ្ទង់。"]);
             return;
         }
 
@@ -375,7 +369,7 @@ function handleResetPassword($db, $simulated) {
     } catch (PDOException $e) {
         error_log("Database error resetting password: " . $e->getMessage());
         http_response_code(500);
-        echo json_encode(["status" => "error", "message" => "បរាជ័យក្នុងការ Reset Password! " . $e->getMessage()]);
+        echo json_encode(["status" => "error", "message" => "បរាជ័យក្នុងការ Reset Password!"]);
     }
 }
 
@@ -432,7 +426,7 @@ function handleDeleteUser($db, $simulated) {
     } catch (PDOException $e) {
         error_log("Database error deleting user: " . $e->getMessage());
         http_response_code(500);
-        echo json_encode(["status" => "error", "message" => "បរាជ័យក្នុងការលុបគណនីអ្នកប្រើប្រាស់! " . $e->getMessage()]);
+        echo json_encode(["status" => "error", "message" => "បរាជ័យក្នុងការលុបគណនីអ្នកប្រើប្រាស់!"]);
     }
 }
 
