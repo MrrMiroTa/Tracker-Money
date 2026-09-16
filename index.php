@@ -37,6 +37,7 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
     <title>ប្រព័ន្ធគ្រប់គ្រងហិរញ្ញវត្ថុ - Production Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@300;400;600;700;800&family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="admin-style.css?v=27.0">
+    <link rel="icon" href="icon.png">
     <!-- Chart.js Engine for Visual Analytics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>

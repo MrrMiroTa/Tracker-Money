@@ -27,6 +27,7 @@ $role = $_SESSION['role'] ?? 'user';
     <title>បណ្ណសារសវនកម្ម - Financial Tracker B2B SaaS</title>
     <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="admin-style.css?v=27.0">
+    <link rel="icon" href="icon.png">
     <script>
         (function() {
             const savedTheme = localStorage.getItem('theme');
