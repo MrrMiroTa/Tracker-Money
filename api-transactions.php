@@ -429,6 +429,9 @@ switch ($method) {
         $fromDate = isset($_GET['from_date']) ? trim($_GET['from_date']) : '';
         $toDate = isset($_GET['to_date']) ? trim($_GET['to_date']) : '';
         $filter_date = isset($_GET['date']) ? trim($_GET['date']) : '';
+        $filter_month = isset($_GET['month']) ? trim($_GET['month']) : '';
+        $filter_category = isset($_GET['category']) ? trim($_GET['category']) : '';
+        $filter_operation = isset($_GET['operation']) ? trim(strtolower($_GET['operation'])) : '';
 
         $whereClause = " WHERE t.is_deleted = 0";
         $queryParams = [];
@@ -445,6 +448,21 @@ switch ($method) {
         } elseif (!empty($filter_date)) {
             $whereClause .= " AND DATE(t.date) = :filter_date";
             $queryParams[':filter_date'] = $filter_date;
+        }
+
+        if (preg_match('/^\d{4}-\d{2}$/', $filter_month)) {
+            $whereClause .= " AND DATE_FORMAT(t.date, '%Y-%m') = :filter_month";
+            $queryParams[':filter_month'] = $filter_month;
+        }
+
+        if ($filter_category !== '') {
+            $whereClause .= " AND t.category = :filter_category";
+            $queryParams[':filter_category'] = $filter_category;
+        }
+
+        if (in_array($filter_operation, ['income', 'expense'], true)) {
+            $whereClause .= " AND LOWER(t.type) = :filter_operation";
+            $queryParams[':filter_operation'] = $filter_operation;
         }
 
         if ($db === null) {

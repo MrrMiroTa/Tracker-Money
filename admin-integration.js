@@ -141,11 +141,22 @@ function setupExchangeRateWidget() {
 function setupDateFilterListeners() {
     const fromDateInput = document.getElementById('filter-from-date');
     const toDateInput = document.getElementById('filter-to-date');
+    const monthInput = document.getElementById('filter-month');
+    const categoryInput = document.getElementById('filter-category');
+    const operationInput = document.getElementById('filter-operation');
 
-    if (fromDateInput && toDateInput) {
-        fromDateInput.addEventListener('change', () => loadTransactionsTable(1));
-        toDateInput.addEventListener('change', () => loadTransactionsTable(1));
-    }
+    [fromDateInput, toDateInput, monthInput, categoryInput, operationInput]
+        .filter(Boolean)
+        .forEach(input => input.addEventListener('change', () => loadTransactionsTable(1)));
+}
+
+function resetTransactionFilters() {
+    ['filter-month', 'filter-category', 'filter-operation', 'filter-from-date', 'filter-to-date']
+        .forEach(id => {
+            const input = document.getElementById(id);
+            if (input) input.value = '';
+        });
+    loadTransactionsTable(1);
 }
 
 /**
@@ -788,16 +799,23 @@ async function loadTransactionsTable(page = 1) {
     const tbody = document.getElementById('transaction-table-body');
     if (!tbody) return;
 
-    let url = `${API_TRANSACTIONS_URL}?page=${page}`;
+    const params = new URLSearchParams({ page: String(page) });
     const fromDate = document.getElementById('filter-from-date')?.value;
     const toDate = document.getElementById('filter-to-date')?.value;
+    const month = document.getElementById('filter-month')?.value;
+    const category = document.getElementById('filter-category')?.value;
+    const operation = document.getElementById('filter-operation')?.value;
 
     if (fromDate && toDate) {
-        url += `&from_date=${fromDate}&to_date=${toDate}`;
+        params.set('from_date', fromDate);
+        params.set('to_date', toDate);
     }
+    if (month) params.set('month', month);
+    if (category) params.set('category', category);
+    if (operation) params.set('operation', operation);
 
     try {
-        const response = await fetch(url);
+        const response = await fetch(`${API_TRANSACTIONS_URL}?${params.toString()}`);
         const result = await response.json();
 
         if (result.status === 'success' && Array.isArray(result.data)) {

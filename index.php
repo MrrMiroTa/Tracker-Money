@@ -27,7 +27,7 @@ $username = $_SESSION['username'] ?? 'User';
 $role = $_SESSION['role'] ?? 'user';
 
 // Categories list for form datalist
-$categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពាក់', 'ការធ្វើដំណើរ', 'វិក្កយបត្រ', 'ការអប់រំ', 'សុខភាព', 'កម្សាន្ត', 'ផ្សេងៗ'];
+$categories = ['Breakfast','Lunch','Dinner','Party','Home','Room','Electric','Coffee','Desert','Motorcycles'];
 ?>
 <!DOCTYPE html>
 <html lang="km">
@@ -37,6 +37,7 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
     <title>ប្រព័ន្ធគ្រប់គ្រងហិរញ្ញវត្ថុ - Production Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@300;400;600;700;800&family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="admin-style.css?v=27.0">
+    <link rel="icon" type="image/x-icon" href="icon.png">
     <!-- Chart.js Engine for Visual Analytics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
@@ -263,14 +264,31 @@ $categories = ['ម្ហូបអាហារ', 'សម្លៀកបំពា
                     <h2 style="margin: 0; font-size: 1.25rem; font-weight: 800; color: var(--dark);">📋 បញ្ជីប្រតិបត្តិការហិរញ្ញវត្ថុ</h2>
                 </div>
 
-                <!-- 7. Advanced Date Range Filter Bar -->
+                <!-- 7. Transaction Filters -->
                 <div class="date-range-bar">
-                    <label>ស្វែងរកតាមចន្លោះកាលបរិច្ឆេទ៖</label>
+                    <label for="filter-month">ចម្រោះប្រតិបត្តិការ៖</label>
+                    <span>ខែ៖</span>
+                    <input type="month" id="filter-month" aria-label="Filter by month">
+                    <span>ប្រភេទក្រុម៖</span>
+                    <select id="filter-category" aria-label="Filter by category">
+                        <option value="">គ្រប់ប្រភេទក្រុម</option>
+                        <?php foreach ($categories as $cat): ?>
+                            <option value="<?= htmlspecialchars($cat) ?>"><?= htmlspecialchars($cat) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <span>ប្រតិបត្តិការ៖</span>
+                    <select id="filter-operation" aria-label="Filter by operation">
+                        <option value="">គ្រប់ប្រតិបត្តិការ</option>
+                        <option value="income">ចំណូល (Income)</option>
+                        <option value="expense">ចំណាយ (Expense)</option>
+                    </select>
+                    <span class="filter-date-label">កាលបរិច្ឆេទ៖</span>
                     <span>ចាប់ពី៖</span>
                     <input type="date" id="filter-from-date">
                     <span>ដល់៖</span>
                     <input type="date" id="filter-to-date">
                     <button class="btn btn-secondary" style="padding: 6px 14px; font-size: 0.85rem;" onclick="loadTransactionsTable(1)">🔍 ចម្រោះ</button>
+                    <button type="button" class="btn btn-secondary filter-reset-btn" style="padding: 6px 14px; font-size: 0.85rem;" onclick="resetTransactionFilters()">សម្អាត</button>
                 </div>
 
                 <!-- Responsive Table Wrapper -->
