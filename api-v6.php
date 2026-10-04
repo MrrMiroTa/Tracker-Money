@@ -6,11 +6,10 @@
 
 header("Content-Type: application/json; charset=UTF-8");
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once __DIR__ . '/security-bootstrap.php';
 
 require_once 'config.php';
+require_once __DIR__ . '/auth-guard.php';
 
 // Security Helper to log admin activities
 function logAdminActivity($db, $action, $target_user_id = null, $details = '') {
@@ -118,71 +117,8 @@ switch ($request_method) {
 // Action Handlers
 
 function handleLogin($db, $simulated) {
-    $data = json_decode(file_get_contents("php://input"), true);
-    
-    if (empty($data['username']) || empty($data['password'])) {
-        http_response_code(400);
-        echo json_encode(["status" => "error", "message" => "Username and password are required."]);
-        return;
-    }
-
-    $username = trim($data['username']);
-    $password = $data['password'];
-
-    if ($simulated) {
-        if ($username === 'admin_sophors' && $password === 'admin123') {
-            $_SESSION['user_id'] = 2;
-            $_SESSION['username'] = 'admin_sophors';
-            $_SESSION['role'] = 'admin';
-            echo json_encode(["status" => "success", "message" => "Simulated Login Successful", "user" => ["username" => $username, "role" => "admin"]]);
-        } else if ($username === 'superadmin_cambodia' && $password === 'admin123') {
-            $_SESSION['user_id'] = 1;
-            $_SESSION['username'] = 'superadmin_cambodia';
-            $_SESSION['role'] = 'super_admin';
-            echo json_encode(["status" => "success", "message" => "Simulated Login Successful", "user" => ["username" => $username, "role" => "super_admin"]]);
-        } else {
-            http_response_code(401);
-            echo json_encode(["status" => "error", "message" => "Invalid credentials."]);
-        }
-        return;
-    }
-
-    try {
-        $stmt = $db->prepare("SELECT id, username, password_hash, role, status FROM users WHERE username = ? LIMIT 1");
-        $stmt->execute([$username]);
-        $user = $stmt->fetch();
-
-        if ($user && password_verify($password, $user['password_hash'])) {
-            if ($user['status'] !== 'active') {
-                http_response_code(403);
-                echo json_encode(["status" => "error", "message" => "Account is suspended or inactive."]);
-                return;
-            }
-
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['username'] = $user['username'];
-            $_SESSION['role'] = $user['role'];
-
-            logAdminActivity($db, 'LOGIN', $user['id'], "User logged in successfully");
-
-            echo json_encode([
-                "status" => "success",
-                "message" => "Login successful!",
-                "user" => [
-                    "user_id" => $user['id'],
-                    "username" => $user['username'],
-                    "role" => $user['role']
-                ]
-            ]);
-        } else {
-            http_response_code(401);
-            echo json_encode(["status" => "error", "message" => "ឈ្មោះអ្នកប្រើប្រាស់ ឬពាក្យសម្ងាត់មិនត្រឹមត្រូវឡើយ!"]);
-        }
-    } catch (PDOException $e) {
-        error_log("Database login error: " . $e->getMessage());
-        http_response_code(500);
-        echo json_encode(["status" => "error", "message" => "មានបញ្ហាបច្ចេកទេសក្នុងការចូលប្រើប្រាស់!"]);
-    }
+    // Secure flow (rate limit + server-side MFA + session regeneration) lives in auth-guard.php
+    handleSecureLogin($db);
 }
 
 function handleGetAuditLogs($db, $simulated) {

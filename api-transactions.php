@@ -6,11 +6,10 @@
 
 header("Content-Type: application/json; charset=UTF-8");
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once __DIR__ . '/security-bootstrap.php';
 
 require_once 'config.php';
+require_once __DIR__ . '/upload-helper.php';
 
 // Authentication Guard
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role'])) {
@@ -124,16 +123,14 @@ switch ($method) {
                     exit;
                 }
 
-                // Handle Receipt Upload
+                // Handle Receipt Upload (validated: real MIME type, allowlist, random name)
                 $new_receipt = null;
-                if (isset($_FILES['receipt']) && $_FILES['receipt']['error'] === UPLOAD_ERR_OK) {
-                    $uploadDir = __DIR__ . '/uploads/';
-                    if (!is_dir($uploadDir)) @mkdir($uploadDir, 0755, true);
-                    $ext = strtolower(pathinfo($_FILES['receipt']['name'], PATHINFO_EXTENSION));
-                    $filename = 'receipt_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
-                    if (move_uploaded_file($_FILES['receipt']['tmp_name'], $uploadDir . $filename)) {
-                        $new_receipt = 'uploads/' . $filename;
-                    }
+                try {
+                    $new_receipt = saveReceiptUpload($_FILES['receipt'] ?? null);
+                } catch (UploadRejected $e) {
+                    http_response_code(400);
+                    echo json_encode(["status" => "error", "message" => $e->getMessage()]);
+                    exit;
                 }
 
                 $receiptPath = $new_receipt ?: ($txn['receipt_image'] ?? null);
@@ -179,14 +176,12 @@ switch ($method) {
         $date = isset($input['date']) && !empty($input['date']) ? trim($input['date']) : date('Y-m-d H:i:s');
         
         $receipt_image = null;
-        if (isset($_FILES['receipt']) && $_FILES['receipt']['error'] === UPLOAD_ERR_OK) {
-            $uploadDir = __DIR__ . '/uploads/';
-            if (!is_dir($uploadDir)) @mkdir($uploadDir, 0755, true);
-            $ext = strtolower(pathinfo($_FILES['receipt']['name'], PATHINFO_EXTENSION));
-            $filename = 'receipt_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
-            if (move_uploaded_file($_FILES['receipt']['tmp_name'], $uploadDir . $filename)) {
-                $receipt_image = 'uploads/' . $filename;
-            }
+        try {
+            $receipt_image = saveReceiptUpload($_FILES['receipt'] ?? null);
+        } catch (UploadRejected $e) {
+            http_response_code(400);
+            echo json_encode(["status" => "error", "message" => $e->getMessage()]);
+            exit;
         }
 
         if (empty($description) || $amount === false || $amount <= 0 || empty($currency) || empty($type) || empty($category)) {
@@ -422,7 +417,7 @@ switch ($method) {
         }
 
         // --- Action: get_transactions (Default Table) ---
-        $limit = isset($_GET['limit']) ? max(1, intval($_GET['limit'])) : 10;
+        $limit = isset($_GET['limit']) ? max(1, min(100, intval($_GET['limit']))) : 10; // hard cap: no one can pull the whole table in one request
         $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
         $offset = ($page - 1) * $limit;
 

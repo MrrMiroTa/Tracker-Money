@@ -1,160 +1,84 @@
 <?php
 /**
- * config.php & config-wasmer.php - Universal Database Connection & Security Configuration
+ * config.php - Database connection & security configuration
  * Part of the Khmer Payment Tracker and Financial Management System
- * 
- * Supports MySQL (via Wasmer Environment Variables or standard credentials)
- * with an automatic fallback to SQLite so the application NEVER crashes or fails to connect.
+ *
+ * SECURITY CHANGES vs. the old version
+ *  - NO credentials in the source code. They come from environment variables
+ *    (Wasmer: WASMER_MYSQL_*) or from a git-ignored file `config.local.php`.
+ *  - NO silent SQLite fallback and NO seeded default accounts (the old fallback
+ *    created superadmin_cambodia / admin123 whenever MySQL was unreachable).
+ *    If the database is down the app now fails CLOSED with a 503.
+ *  - Sessions / headers are handled by security-bootstrap.php.
  */
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+require_once __DIR__ . '/security-bootstrap.php';
+
+// Optional local override (shared hosting without env vars). Must be git-ignored.
+$__local = is_file(__DIR__ . '/config.local.php') ? (array)require __DIR__ . '/config.local.php' : [];
+
+$__pick = function (string $key, string $wasmerEnv) use ($__local): string {
+    foreach ([$wasmerEnv, $key] as $env) {
+        $v = getenv($env);
+        if ($v !== false && $v !== '') {
+            return $v;
+        }
+    }
+    return (string)($__local[$key] ?? '');
+};
+
+define('DB_HOST', $__pick('DB_HOST', 'WASMER_MYSQL_HOST'));
+define('DB_PORT', $__pick('DB_PORT', 'WASMER_MYSQL_PORT') ?: '3306');
+define('DB_NAME', $__pick('DB_NAME', 'WASMER_MYSQL_NAME'));
+define('DB_USER', $__pick('DB_USER', 'WASMER_MYSQL_USER'));
+define('DB_PASS', $__pick('DB_PASS', 'WASMER_MYSQL_PASSWORD'));
+unset($__local, $__pick);
+
+function configFailClosed(string $logMessage): void
+{
+    error_log($logMessage);
+    if (!headers_sent()) {
+        http_response_code(503);
+        header('Content-Type: application/json; charset=UTF-8');
+        header('Retry-After: 60');
+    }
+    echo json_encode(['status' => 'error', 'message' => 'ប្រព័ន្ធមិនអាចប្រើបានបណ្តោះអាសន្ន។ សូមសាកល្បងម្តងទៀតនៅពេលក្រោយ។']);
+    exit;
 }
 
-// Environment Credentials for Wasmer / MySQL
-define("DB_HOST", getenv("WASMER_MYSQL_HOST") ?: (getenv("DB_HOST") ?: "YOUR_WASMER_DB_HOST"));
-define("DB_PORT", getenv("WASMER_MYSQL_PORT") ?: (getenv("DB_PORT") ?: "3306"));
-define("DB_NAME", getenv("WASMER_MYSQL_NAME") ?: (getenv("DB_NAME") ?: "YOUR_WASMER_DB_NAME"));
-define("DB_USER", getenv("WASMER_MYSQL_USER") ?: (getenv("DB_USER") ?: "YOUR_WASMER_DB_USER"));
-define("DB_PASS", getenv("WASMER_MYSQL_PASSWORD") ?: (getenv("DB_PASS") ?: "YOUR_WASMER_DB_PASSWORD"));
-
-define("SYS_SIMULATION_MODE", false);
-define("SECURE_SESSION_COOKIES", true);
-
-/**
- * Universal Database Connection Engine (MySQL with SQLite Fallback)
- */
-function getSecureDBConnection() {
+/** PDO connection (MySQL). Never returns null: on failure the request ends with 503. */
+function getSecureDBConnection(): PDO
+{
     static $pdo = null;
     if ($pdo !== null) {
         return $pdo;
     }
 
-    $host = DB_HOST;
-    $port = DB_PORT;
-    $dbname = DB_NAME;
-    $user = DB_USER;
-    $pass = DB_PASS;
+    if (DB_HOST === '' || DB_NAME === '' || DB_USER === '') {
+        configFailClosed('Database is not configured: set WASMER_MYSQL_* / DB_* env vars or config.local.php');
+    }
 
-    // 1. Try MySQL Connection if Host is configured (not placeholder)
-    if (!empty($host) && $host !== "YOUR_WASMER_DB_HOST") {
-        try {
-            $dsn = "mysql:host={$host};port={$port};dbname={$dbname};charset=utf8mb4";
-            $options = [
+    try {
+        $pdo = new PDO(
+            'mysql:host=' . DB_HOST . ';port=' . DB_PORT . ';dbname=' . DB_NAME . ';charset=utf8mb4',
+            DB_USER,
+            DB_PASS,
+            [
                 PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES   => false,
-            ];
-            $pdo = new PDO($dsn, $user, $pass, $options);
-            return $pdo;
-        } catch (PDOException $e) {
-            error_log("MySQL Connection Exception: " . $e->getMessage());
-        }
+            ]
+        );
+    } catch (PDOException $e) {
+        configFailClosed('MySQL connection failed: ' . $e->getMessage());
     }
-
-    // 2. Universal Fallback: SQLite (Guarantees zero-downtime & zero server-connection failure)
-    try {
-        $dataDir = __DIR__ . "/data";
-        if (!is_dir($dataDir)) {
-            @mkdir($dataDir, 0755, true);
-        }
-        $dbFile = $dataDir . "/tracker.sqlite";
-        $pdo = new PDO("sqlite:" . $dbFile);
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-
-        initSQLiteSchema($pdo);
-        return $pdo;
-    } catch (Exception $e) {
-        error_log("SQLite Connection Exception: " . $e->getMessage());
-        return null;
-    }
+    return $pdo;
 }
 
-/**
- * Compatibility Function Wrapper
- */
-if (!function_exists("getDBConnection")) {
-    function getDBConnection() {
+/** Compatibility wrapper used by older files. */
+if (!function_exists('getDBConnection')) {
+    function getDBConnection(): PDO
+    {
         return getSecureDBConnection();
     }
 }
-
-/**
- * Auto-initialize SQLite database schema & seed admin accounts
- */
-function initSQLiteSchema($pdo) {
-    if (!$pdo) return;
-    try {
-        $pdo->exec("
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL,
-                role TEXT DEFAULT 'user\,
-                status TEXT DEFAULT 'active\,
-                mfa_secret TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS transactions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                description TEXT NOT NULL,
-                amount REAL NOT NULL,
-                currency TEXT DEFAULT 'USD\,
-                type TEXT NOT NULL,
-                category TEXT NOT NULL,
-                date DATETIME NOT NULL,
-                receipt_image TEXT,
-                is_deleted INTEGER DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS audit_logs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER,
-                action TEXT NOT NULL,
-                target_user_id INTEGER,
-                details TEXT,
-                ip_address TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS transaction_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                transaction_id INTEGER NOT NULL,
-                user_id INTEGER NOT NULL,
-                original_description TEXT,
-                original_amount REAL,
-                original_currency TEXT,
-                original_type TEXT,
-                original_category TEXT,
-                new_description TEXT,
-                new_amount REAL,
-                new_currency TEXT,
-                new_type TEXT,
-                new_category TEXT,
-                action_type TEXT NOT NULL,
-                actioned_by INTEGER NOT NULL,
-                actioned_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            );
-        ");
-
-        // Seed default admin accounts if empty
-        $check = $pdo->query("SELECT COUNT(*) FROM users");
-        if ((int)$check->fetchColumn() === 0) {
-            $superPass = password_hash("admin123", PASSWORD_BCRYPT);
-            $adminPass = password_hash("admin123", PASSWORD_BCRYPT);
-            $userPass = password_hash("user123", PASSWORD_BCRYPT);
-
-            $stmt = $pdo->prepare("INSERT INTO users (id, username, password_hash, role, status) VALUES (?, ?, ?, ?, 'active\)");
-            $stmt->execute([1, "superadmin_cambodia", $superPass, "super_admin"]);
-            $stmt->execute([2, "admin_sophors", $adminPass, "admin"]);
-            $stmt->execute([3, "khmer_user1", $userPass, "user"]);
-        }
-    } catch (Exception $e) {
-        error_log("SQLite schema init warning: " . $e->getMessage());
-    }
-}
-?>

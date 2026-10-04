@@ -1,0 +1,92 @@
+/* theme-fintech.css - "Elegostra"-style fintech dashboard. Loaded AFTER admin-style.css.
+   Remove the <link> to theme-fintech.css to return to the old look. Dark mode keeps its own styles. */
+:root {
+    --primary: #4b4bf2; --primary-dark: #3a3ad8; --primary-light: #ececff;
+    --navy: #171736; --orange: #ff7a3d;
+    --success: #16a34a; --success-light: #e3f7ea; --success-text: #15803d;
+    --danger: #ef4444; --danger-light: #feeceb; --danger-text: #b42318;
+    --dark: #171736; --gray-bg: #e4e8f3; --gray-border: #e9ebf5; --gray-text: #7a7f9c;
+    --radius-xl: 26px; --radius-lg: 18px; --radius-md: 14px; --radius-sm: 8px;
+    --shadow-card: 0 10px 34px -16px rgba(23, 23, 54, .22);
+    --shadow-hover: 0 18px 40px -16px rgba(23, 23, 54, .3);
+}
+body:not(.dark-mode) { background: linear-gradient(160deg, #e8ecf6 0%, #d8def0 100%) fixed; color: var(--dark); }
+
+/* ---- Top bar: brand left, white pill menu, dark active item ---- */
+body:not(.dark-mode) .navbar { background: transparent; box-shadow: none; border: 0; max-width: 1240px; margin: 0 auto; padding: 18px 8px; position: relative; }
+body:not(.dark-mode) .navbar-brand span { color: var(--navy); font-size: 1.45rem; font-weight: 800; }
+@media (min-width: 900px) {
+    body:not(.dark-mode) .navbar-nav { background: #fff; border-radius: 22px; padding: 5px; gap: 2px; align-items: center; box-shadow: var(--shadow-card); }
+    body:not(.dark-mode) .navbar-nav a { color: #4a4f72; border-radius: 16px; padding: 9px 18px; font-size: .88rem; font-weight: 600; }
+    body:not(.dark-mode) .navbar-nav a[href="index.php"] { background: var(--navy); color: #fff; }
+    body:not(.dark-mode) .navbar-nav a:not([href="index.php"]):hover { background: var(--primary-light); color: var(--primary); }
+}
+@media (max-width: 899px) { body:not(.dark-mode) .navbar { background: #fff; border-radius: 0 0 20px 20px; } }
+body:not(.dark-mode) .navbar .bar { background: var(--navy); }
+body:not(.dark-mode) #dark-mode-toggle { background: var(--gray-bg) !important; color: var(--navy) !important; font-weight: 700; }
+body:not(.dark-mode) .logout-btn { background: var(--danger-light) !important; color: var(--danger-text) !important; border-radius: 16px; }
+
+/* ---- Welcome heading ---- */
+.welcome-banner { background: transparent !important; border: 0 !important; box-shadow: none !important; padding: 6px 4px 14px; }
+.welcome-banner h1 { font-size: 2.2rem; font-weight: 800; color: var(--navy); }
+.welcome-banner p { color: var(--gray-text); }
+.role-badge-pill { background: #fff !important; color: var(--navy) !important; border: 1px solid var(--gray-border); box-shadow: var(--shadow-card); border-radius: 14px; padding: 8px 16px; }
+.exchange-rate-widget { background: var(--navy) !important; border-radius: 22px !important; border: 0 !important; box-shadow: var(--shadow-card); }
+
+/* ---- ONE white KPI card, columns split by thin dividers, coloured icon badges ---- */
+.metrics-grid { background: #fff; border-radius: var(--radius-xl); box-shadow: var(--shadow-card); padding: 6px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
+@media (max-width: 800px) { .metrics-grid { grid-template-columns: 1fr; } .metrics-grid .metric-card + .metric-card { border-left: 0 !important; border-top: 1px solid var(--gray-border) !important; } }
+.metrics-grid .metric-card { background: transparent !important; border: 0 !important; box-shadow: none !important; border-radius: 0 !important; padding: 20px 26px; transform: none !important; color: var(--dark) !important; }
+.metrics-grid .metric-card + .metric-card { border-left: 1px solid var(--gray-border) !important; }
+.metrics-grid .metric-card * { color: inherit; }
+.metric-header h3 { font-size: .86rem; font-weight: 600; color: var(--gray-text) !important; }
+.metric-card .currency-label { color: var(--gray-text) !important; font-weight: 600; }
+.metric-card .currency-value { color: var(--navy) !important; font-weight: 800; font-size: 1.35rem; }
+.metric-icon-box { width: 42px; height: 42px; border-radius: 13px; display: grid; place-items: center; }
+.icon-balance { background: var(--primary) !important; }
+.icon-income { background: var(--success) !important; }
+.icon-expense { background: var(--danger) !important; }
+
+/* ---- Cards ---- */
+body:not(.dark-mode) .card, body:not(.dark-mode) .chart-card, body:not(.dark-mode) .modal-content-card { background: #fff; border: 0; border-radius: var(--radius-xl); box-shadow: var(--shadow-card); }
+.main-content-grid > *, .charts-grid > * { min-width: 0; }
+@media (min-width: 992px) { .main-content-grid { grid-template-columns: minmax(250px, 3fr) minmax(0, 9fr); } }
+.table-responsive { overflow-x: auto; }
+
+/* ---- Budget alert -> orange "Insights" card ---- */
+.budget-alert-card { position: relative; overflow: hidden; background: linear-gradient(135deg, #ff8f50, #ff5a2c) !important; color: #fff !important; border: 0 !important; border-radius: var(--radius-xl) !important; padding: 22px 26px !important; box-shadow: 0 20px 40px -18px rgba(255, 90, 44, .75); }
+.budget-alert-card::before { content: ""; position: absolute; right: -70px; top: -90px; width: 240px; height: 240px; border-radius: 50%; border: 1.5px solid rgba(255, 255, 255, .35); box-shadow: 0 0 0 46px rgba(255, 255, 255, .07); pointer-events: none; }
+.budget-alert-card * { color: #fff !important; position: relative; }
+.budget-alert-card .progress-bar-bg { background: rgba(255, 255, 255, .3) !important; border-radius: 99px; height: 8px; }
+.budget-alert-card .progress-bar-fill { background: #fff !important; border-radius: 99px; }
+
+/* ---- Buttons & inputs ---- */
+.btn { border-radius: var(--radius-md); font-weight: 700; transition: var(--transition); }
+.btn:not(.btn-secondary) { background: var(--navy); color: #fff; border: 0; box-shadow: none; }
+.btn:not(.btn-secondary):hover { background: #2a2a55; transform: translateY(-1px); }
+body:not(.dark-mode) .btn-secondary { background: #fff; color: var(--navy); border: 1px solid var(--gray-border); }
+input, select, textarea { border-radius: var(--radius-md) !important; border: 1.5px solid var(--gray-border); }
+body:not(.dark-mode) input, body:not(.dark-mode) select, body:not(.dark-mode) textarea { background-color: #f8f9fd; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 4px rgba(75, 75, 242, .14); }
+
+/* ---- Filter + report bars ---- */
+.date-range-bar, .report-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 14px 18px; margin-bottom: 14px; border-radius: 20px; font-size: .9rem; }
+body:not(.dark-mode) .date-range-bar { background: #f6f7fc; border: 0; }
+.report-bar { background: var(--primary-light); border: 0; }
+.report-bar input, .report-bar select { padding: 7px 10px; }
+
+/* ---- Table ---- */
+.transaction-table { border-collapse: separate; border-spacing: 0; width: 100%; }
+.transaction-table th { background: #f6f7fc; color: var(--gray-text); font-size: .76rem; text-transform: uppercase; letter-spacing: .04em; border: 0; padding: 12px 14px; }
+.transaction-table th:first-child { border-radius: 14px 0 0 14px; } .transaction-table th:last-child { border-radius: 0 14px 14px 0; }
+.transaction-table td { border: 0; border-bottom: 1px solid var(--gray-border); padding: 14px; }
+.transaction-table tbody tr:hover { background: #fafbff; }
+.unified-badge, .role-badge-pill { border-radius: 999px; font-weight: 700; }
+
+/* ---- Dark mode keeps working with the new KPI card ---- */
+body.dark-mode .metrics-grid { background: #1e293b; }
+body.dark-mode .metrics-grid .metric-card { color: #e2e8f0 !important; border-color: #334155 !important; }
+body.dark-mode .metric-card .currency-value { color: #fff !important; }
+body.dark-mode .metric-header h3, body.dark-mode .metric-card .currency-label { color: #94a3b8 !important; }
+
+.exchange-rate-widget input { background: #fff !important; color: var(--navy) !important; font-weight: 700; }

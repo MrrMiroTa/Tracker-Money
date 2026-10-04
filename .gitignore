@@ -1,0 +1,17 @@
+# Secrets - never commit
+config.local.php
+.env
+*.log
+
+# Runtime data
+data/
+*.sqlite
+uploads/*
+!uploads/.htaccess
+
+# Database dumps contain real users/hashes/MFA secrets - keep them out of git
+# (commit a structure-only schema file instead)
+*_system_track.sql
+
+# Dumps with real data are not for git
+payment_db.sql

@@ -7,9 +7,7 @@
  * and a polished multi-step user experience.
  */
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once __DIR__ . '/security-bootstrap.php';
 
 // Redirect already logged-in users to Dashboard
 if (isset($_SESSION['user_id']) && isset($_SESSION['role'])) {

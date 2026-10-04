@@ -13,9 +13,7 @@
  * - Mobile-first responsive layout with Hamburger Navigation Toggle
  */
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once __DIR__ . '/security-bootstrap.php';
 
 // Enforce Authentication Guard
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role'])) {
@@ -37,9 +35,10 @@ $categories = ['Breakfast','Lunch','Dinner','Party','Home','Room','Electric','Co
     <title>ប្រព័ន្ធគ្រប់គ្រងហិរញ្ញវត្ថុ - Production Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@300;400;600;700;800&family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="admin-style.css?v=27.0">
+    <link rel="stylesheet" href="theme-fintech.css?v=1">
     <link rel="icon" type="image/x-icon" href="icon.png">
     <!-- Chart.js Engine for Visual Analytics -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="assets/chart.umd.js"></script>
     <script>
         (function() {
             const savedTheme = localStorage.getItem('theme');
@@ -77,8 +76,7 @@ $categories = ['Breakfast','Lunch','Dinner','Party','Home','Room','Electric','Co
             <?php if ($role === 'super_admin' || $role === 'admin'): ?>
                 <a href="archive-history.php">បណ្ណសារសវនកម្ម (History)</a>
             <?php endif; ?>
-            <a href="pdf.php" target="_blank">ទាញយក PDF</a>
-            <a href="export-csv.php" target="_blank">នាំចេញ CSV</a>
+            <a href="#report-bar">📄 របាយការណ៍ PDF / CSV</a>
             
             <button id="dark-mode-toggle" onclick="toggleTheme()" class="btn" style="background: rgba(255,255,255,0.15); color: white; border: none; padding: 6px 14px; border-radius: 20px; cursor: pointer; font-size: 0.88rem; display: inline-flex; align-items: center; gap: 6px;">
                 🌙 Dark Mode
@@ -119,7 +117,7 @@ $categories = ['Breakfast','Lunch','Dinner','Party','Home','Room','Electric','Co
             <div class="metric-card metric-card-balance">
                 <div class="metric-header">
                     <h3>💰 សមតុល្យសរុប (Total Balance)</h3>
-                    <div class="metric-icon-box icon-balance">💵</div>
+                    <div class="metric-icon-box icon-balance"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h13v4"/><path d="M3 7v10a2 2 0 0 0 2 2h14a1 1 0 0 0 1-1v-3"/><path d="M21 9h-4a2 2 0 0 0 0 4h4z"/></svg></div>
                 </div>
                 <div class="currency-row">
                     <span class="currency-label">KHR (រៀល)៖</span>
@@ -135,7 +133,7 @@ $categories = ['Breakfast','Lunch','Dinner','Party','Home','Room','Electric','Co
             <div class="metric-card metric-card-income">
                 <div class="metric-header">
                     <h3>📈 ចំណូលសរុប (Total Income)</h3>
-                    <div class="metric-icon-box icon-income">📈</div>
+                    <div class="metric-icon-box icon-income"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 7 7 17M7 8v9h9"/></svg></div>
                 </div>
                 <div class="currency-row">
                     <span class="currency-label">KHR (រៀល)៖</span>
@@ -151,7 +149,7 @@ $categories = ['Breakfast','Lunch','Dinner','Party','Home','Room','Electric','Co
             <div class="metric-card metric-card-expense">
                 <div class="metric-header">
                     <h3>📉 ចំណាយសរុប (Total Expense)</h3>
-                    <div class="metric-icon-box icon-expense">📉</div>
+                    <div class="metric-icon-box icon-expense"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></div>
                 </div>
                 <div class="currency-row">
                     <span class="currency-label">KHR (រៀល)៖</span>
@@ -263,6 +261,48 @@ $categories = ['Breakfast','Lunch','Dinner','Party','Home','Room','Electric','Co
                 <div class="table-header-row">
                     <h2 style="margin: 0; font-size: 1.25rem; font-weight: 800; color: var(--dark);">📋 បញ្ជីប្រតិបត្តិការហិរញ្ញវត្ថុ</h2>
                 </div>
+
+                <!-- Report download: day / week / month / range -->
+                <div class="report-bar" id="report-bar">
+                    <strong>📄 ទាញយករបាយការណ៍៖</strong>
+                    <select id="rp-period" aria-label="Report period">
+                        <option value="day">តាមថ្ងៃ</option>
+                        <option value="week">តាមសប្តាហ៍</option>
+                        <option value="month" selected>តាមខែ</option>
+                        <option value="range">ចន្លោះថ្ងៃ</option>
+                        <option value="all">ទាំងអស់</option>
+                    </select>
+                    <input type="date" id="rp-date" data-p="day">
+                    <input type="week" id="rp-week" data-p="week">
+                    <input type="month" id="rp-month" data-p="month">
+                    <span data-p="range">ចាប់ពី</span><input type="date" id="rp-from" data-p="range">
+                    <span data-p="range">ដល់</span><input type="date" id="rp-to" data-p="range">
+                    <button type="button" class="btn" onclick="downloadReport('pdf.php')">⬇ PDF</button>
+                    <button type="button" class="btn btn-secondary" onclick="downloadReport('export-csv.php')">⬇ CSV</button>
+                </div>
+                <script>
+                (function () {
+                    var $ = function (id) { return document.getElementById(id); };
+                    var n = new Date(), p2 = function (x) { return String(x).padStart(2, '0'); };
+                    var today = n.getFullYear() + '-' + p2(n.getMonth() + 1) + '-' + p2(n.getDate());
+                    var t = new Date(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate())); // ISO week of today
+                    t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7));
+                    var wk = Math.ceil(((t - Date.UTC(t.getUTCFullYear(), 0, 1)) / 864e5 + 1) / 7);
+                    $('rp-date').value = today; $('rp-from').value = today; $('rp-to').value = today;
+                    $('rp-month').value = today.slice(0, 7); $('rp-week').value = t.getUTCFullYear() + '-W' + p2(wk);
+                    function sync() { document.querySelectorAll('#report-bar [data-p]').forEach(function (el) { el.style.display = el.dataset.p === $('rp-period').value ? '' : 'none'; }); }
+                    $('rp-period').addEventListener('change', sync); sync();
+                    window.downloadReport = function (file) {
+                        var p = $('rp-period').value, q = 'period=' + p;
+                        if (p === 'day') q += '&date=' + $('rp-date').value;
+                        if (p === 'week') q += '&week=' + $('rp-week').value;
+                        if (p === 'month') q += '&month=' + $('rp-month').value;
+                        if (p === 'range') q += '&from=' + $('rp-from').value + '&to=' + $('rp-to').value;
+                        if (p !== 'all' && /=(&|$)/.test(q)) { alert('សូមជ្រើសរើសកាលបរិច្ឆេទជាមុន'); return; }
+                        window.open(file + '?' + q, '_blank');
+                    };
+                })();
+                </script>
 
                 <!-- 7. Transaction Filters -->
                 <div class="date-range-bar">

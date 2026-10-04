@@ -4,9 +4,7 @@
 // Designed for Khmer Payment Tracker and Financial Management System
 
 // 1. Initialize Session and Central Configurations
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once __DIR__ . '/security-bootstrap.php';
 
 require_once 'config.php';
 
@@ -44,13 +42,10 @@ if ($user_role !== 'super_admin' && $user_role !== 'admin') {
     $params[':user_id'] = $user_id;
 }
 
-$filter_date = isset($_GET['date']) ? trim($_GET['date']) : '';
-if (!empty($filter_date)) {
-    $queryStr .= " AND DATE(t.date) = :filter_date";
-    $params[':filter_date'] = $filter_date;
-}
+require_once __DIR__ . '/report-filter.php';
+$filter_date = applyReportFilter($queryStr, $params, $_GET); // label of the chosen period ('' = all)
 
-$queryStr .= " ORDER BY t.date DESC";
+$queryStr .= " ORDER BY t.date DESC LIMIT 5000"; // cap keeps huge exports from exhausting memory
 
 try {
     $stmt = $db->prepare($queryStr);

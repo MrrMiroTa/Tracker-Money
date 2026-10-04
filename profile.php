@@ -4,9 +4,7 @@
  * Part of the Khmer Payment Tracker and Financial Management System
  */
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once __DIR__ . '/security-bootstrap.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -103,22 +101,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 }
 
-// 4. Disable MFA Handler
+// 4. Disable MFA Handler (now requires a valid current MFA code)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'disable_mfa') {
-    $mfaStmt = $db->prepare("UPDATE users SET mfa_secret = NULL WHERE id = ?");
-    $mfaStmt->execute([$userId]);
+    $disableCode = $_POST['mfa_code'] ?? '';
+    if (empty($user['mfa_secret']) || !MFAHelper::verifyCode($user['mfa_secret'], $disableCode)) {
+        $feedback = ['status' => 'error', 'message' => 'សូមបញ្ចូលលេខកូដ MFA ៦ ខ្ទង់ឱ្យត្រឹមត្រូវ ដើម្បីបិទ MFA។'];
+    } else {
+        $mfaStmt = $db->prepare("UPDATE users SET mfa_secret = NULL WHERE id = ?");
+        $mfaStmt->execute([$userId]);
 
-    $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
-    $logStmt = $db->prepare("INSERT INTO audit_logs (user_id, action, target_user_id, details, ip_address) VALUES (?, 'DISABLE_MFA', ?, 'User disabled MFA', ?)");
-    $logStmt->execute([$userId, $userId, $ip]);
+        $ip = sec_client_ip();
+        $logStmt = $db->prepare("INSERT INTO audit_logs (user_id, action, target_user_id, details, ip_address) VALUES (?, 'DISABLE_MFA', ?, 'User disabled MFA', ?)");
+        $logStmt->execute([$userId, $userId, $ip]);
 
-    $user['mfa_secret'] = null;
-    $feedback = ['status' => 'success', 'message' => 'ការបិទ MFA ទទួលបានជោគជ័យ។'];
+        $user['mfa_secret'] = null;
+        $feedback = ['status' => 'success', 'message' => 'ការបិទ MFA ទទួលបានជោគជ័យ។'];
+    }
 }
 
 $isSetupMfa = isset($_GET['setup_mfa']) && $_GET['setup_mfa'] == '1' && !empty($_SESSION['temp_mfa_secret']);
 $mfaSecretToShow = $isSetupMfa ? $_SESSION['temp_mfa_secret'] : ($user['mfa_secret'] ?? '');
-$qrCodeUrl = (!empty($mfaSecretToShow)) ? MFAHelper::getQRCodeGoogleUrl($user['username'], $mfaSecretToShow, 'KhmerPaymentTracker') : '';
+$qrCodeUrl = (!empty($mfaSecretToShow)) ? MFAHelper::getQRUrl($user['username'], $mfaSecretToShow, 'KhmerPaymentTracker') : '';
 ?>
 <!DOCTYPE html>
 <html lang="km">
@@ -128,6 +131,7 @@ $qrCodeUrl = (!empty($mfaSecretToShow)) ? MFAHelper::getQRCodeGoogleUrl($user['u
     <title>ប្រវត្តិរូប និងកំណត់រចនាសម្ព័ន្ធសន្តិសុខ - Payment Tracker</title>
     <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@300;400;600;700;800&family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="admin-style.css?v=27.0">
+    <link rel="stylesheet" href="theme-fintech.css?v=1">
     <link rel="icon" type="image/x-icon" href="icon.png">
     <script>
         (function() {
@@ -266,6 +270,7 @@ $qrCodeUrl = (!empty($mfaSecretToShow)) ? MFAHelper::getQRCodeGoogleUrl($user['u
                     </div>
                     <form method="POST" action="profile.php" onsubmit="return confirm('តើអ្នកពិតជាចង់បិទ MFA មែនទេ?');">
                         <input type="hidden" name="action" value="disable_mfa">
+                        <input type="text" name="mfa_code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required placeholder="លេខកូដ MFA ៦ ខ្ទង់" style="display:block; margin-bottom: 0.75rem; padding: 0.7rem 1rem; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 1rem; letter-spacing: 0.3rem; text-align: center;">
                         <button type="submit" class="btn" style="background: #ef4444; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: var(--radius-md); font-weight: 700; cursor: pointer;">
                             🚫 បិទដំណើរការ MFA (Disable MFA)
                         </button>

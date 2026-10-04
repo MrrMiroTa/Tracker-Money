@@ -11,7 +11,7 @@ class MFAHelper {
     /**
      * បង្កើត random 16-character Base32 Secret Key សម្រាប់គណនីនីមួយៗ
      */
-    public static function generateSecret($length = 16) {
+    public static function generateSecret($length = 32) {
         $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
         $secret = '';
         for ($i = 0; $i < $length; $i++) {
@@ -54,7 +54,7 @@ class MFAHelper {
         }
 
         $key = self::base32Decode($secret);
-        $currentTimeSlice = floor(time() / 30);
+        $currentTimeSlice = intdiv(time(), 30);
 
         for ($i = -$discrepancy; $i <= $discrepancy; $i++) {
             $timeSlice = $currentTimeSlice + $i;

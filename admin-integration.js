@@ -694,9 +694,9 @@ function renderIncomeVsExpenseChart(transactions) {
             datasets: [{
                 label: 'ប្រាក់ដុល្លារ ($ USD)',
                 data: [incUsd.toFixed(2), expUsd.toFixed(2)],
-                backgroundColor: ['#10b981', '#ef4444'],
-                borderRadius: { topLeft: 10, topRight: 10, bottomLeft: 0, bottomRight: 0 },
-                maxBarThickness: 48
+                backgroundColor: ['#4b4bf2', '#ff7a3d'],
+                borderRadius: { topLeft: 16, topRight: 16, bottomLeft: 0, bottomRight: 0 },
+                maxBarThickness: 72
             }]
         },
         options: {
@@ -704,7 +704,7 @@ function renderIncomeVsExpenseChart(transactions) {
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
             scales: {
-                x: { ticks: { color: textColor } },
+                x: { grid: { display: false }, ticks: { color: textColor } },
                 y: {
                     beginAtZero: true,
                     ticks: { color: textColor, callback: function(v) { return '$' + v; } }
