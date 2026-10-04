@@ -1,6 +1,8 @@
 <?php
-// pdf-v8.php
-// Upgraded PDF & CSV Export Service with Professional Styling, Dynamic Filename (Serial No + Timestamp), Zebra Rows, and Summary Cards
+// pdf.php - printable financial report (Khmer-safe).
+// WHY HTML: PDF libraries such as tFPDF cannot shape Khmer (subscripts, pre-vowels) and showed garbage when the font file
+// was missing. The browser's print engine shapes Khmer correctly, so we render a print-ready page that opens the
+// "Save as PDF" dialog automatically.
 // Designed for Khmer Payment Tracker and Financial Management System
 
 // 1. Initialize Session and Central Configurations
@@ -8,9 +10,7 @@ require_once __DIR__ . '/security-bootstrap.php';
 
 require_once 'config.php';
 
-// Enable error reporting for debugging
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
+// (errors are logged, never shown - see security-bootstrap.php)
 
 // 2. Strict Security Guards (RBAC & Principle of Least Privilege)
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role'])) {
@@ -53,7 +53,8 @@ try {
     $transactions = $stmt->fetchAll();
 } catch (PDOException $e) {
     error_log("Database error in pdf.php: " . $e->getMessage());
-    die("មានបញ្ហាបច្ចេកទេសក្នុងការទាញយកទិន្នន័យ៖ " . $e->getMessage());
+    http_response_code(500);
+    die("មានបញ្ហាបច្ចេកទេសក្នុងការទាញយកទិន្នន័យ។ សូមសាកល្បងម្តងទៀត។");
 }
 
 // 4. Calculate Financial Totals for Summary Block
@@ -117,250 +118,100 @@ try {
 $serial_str = str_pad($export_count, 3, '0', STR_PAD_LEFT);
 $current_time_str = date('Y-m-d_H-i-s');
 
-// 6. PDF Generation Engine with Fallbacks
-$tfpdf_loaded = false;
-if (file_exists('tfpdf/tfpdf.php')) {
-    require_once 'tfpdf/tfpdf.php';
-    if (class_exists('tFPDF')) {
-        $tfpdf_loaded = true;
-        class PDF_Engine extends tFPDF {
-            function Footer() {
-                $this->SetY(-15);
-                if (file_exists('tfpdf/font/unifont/KantumruyPro-Regular.ttf')) {
-                    $this->SetFont('Kantumruy', '', 8);
-                } else {
-                    $this->SetFont('Arial', 'I', 8);
-                }
-                $this->SetTextColor(150, 150, 150);
-                $this->Cell(0, 10, 'Page ' . $this->PageNo() . ' / {nb}', 0, 0, 'C');
-            }
-        }
-    }
+// 6. Render the printable report
+function h($v): string { // DB text was HTML-encoded on input in older versions -> decode, then escape once
+    return htmlspecialchars(html_entity_decode((string)$v, ENT_QUOTES | ENT_HTML5, 'UTF-8'), ENT_QUOTES, 'UTF-8');
 }
+$report_name = 'payment_report_No_' . $serial_str . '_' . $current_time_str;
+$autoprint = ($_GET['autoprint'] ?? '1') !== '0';
+$truncated = count($transactions) >= 5000;
+$riel = ' ៛';
+$scope = ($user_role === 'super_admin' || $user_role === 'admin') ? 'ទិន្នន័យទាំងអស់' : 'ទិន្នន័យផ្ទាល់ខ្លួន';
 
-if (!$tfpdf_loaded) {
-    // Fallback Mock class to CSV download with sequential format
-    class PDF_Engine {
-        public function __construct($filename) {
-            header('Content-Type: text/csv; charset=utf-8');
-            header('Content-Disposition: attachment; filename=' . str_replace('.pdf', '.csv', $filename));
-            echo "\xEF\xBB\xBF"; // UTF-8 BOM for Khmer encoding in Excel
-            $output = fopen('php://output', 'w');
-            fputcsv($output, ['កាលបរិច្ឆេទ', 'បរិយាយ', 'អ្នកបន្ថែម', 'ប្រភេទ', 'ចំនួនទឹកប្រាក់ (រៀល)', 'ចំនួនទឹកប្រាក់ (ដុល្លារ)']);
-            global $transactions;
-            foreach ($transactions as $row) {
-                fputcsv($output, [
-                    $row['date'],
-                    $row['description'],
-                    $row['creator_name'] ?? $row['user_id'],
-                    $row['type'] === 'income' ? 'ចំណូល' : 'ចំណាយ',
-                    $row['currency'] === 'KHR' ? number_format($row['amount']) . ' KHR' : '0 KHR',
-                    $row['currency'] === 'USD' ? '$' . number_format($row['amount'], 2) : '$0.00'
-                ]);
-            }
-            fclose($output);
-            exit;
-        }
-    }
-}
-
-// Generate the unique dynamic filename
-$pdf_filename = 'payment_report_No_' . $serial_str . '_' . $current_time_str . '.pdf';
-
-if (!$tfpdf_loaded) {
-    $pdf = new PDF_Engine($pdf_filename);
-    exit;
-}
-
-if (class_exists('PDF_Engine') && $tfpdf_loaded) {
-    $pdf = new PDF_Engine();
-    $pdf->AliasNbPages();
-    $pdf->AddPage();
-    
-    $has_kantumruy = file_exists('tfpdf/font/unifont/KantumruyPro-Regular.ttf');
-    if ($has_kantumruy) {
-        $pdf->AddFont('Kantumruy', '', 'KantumruyPro-Regular.ttf', true);
-        $pdf->SetFont('Kantumruy', '', 11);
-    } else {
-        $pdf->SetFont('Arial', '', 10);
-    }
-
-    // --- STYLING CONSTANTS & COLORS ---
-    $color_primary = [30, 58, 138];    // Deep Blue (#1e3a8a)
-    $color_secondary = [37, 99, 235];  // Slate Blue (#2563eb)
-    $color_success = [16, 185, 129];   // Green (#10b981)
-    $color_danger = [239, 68, 68];     // Red (#ef4444)
-    $color_text_dark = [31, 41, 55];   // Dark Gray (#1f2937)
-    $color_bg_light = [248, 250, 252];  // Alternating light gray (#f8fafc)
-
-    // Unify Riel symbol vs KHR characters based on font availability to prevent raw utf-8 encoding errors
-    $khr_symbol = $has_kantumruy ? ' ៛' : ' KHR';
-
-    // 1. Decorative Header Accent Line
-    $pdf->SetDrawColor($color_primary[0], $color_primary[1], $color_primary[2]);
-    $pdf->SetLineWidth(1);
-    $pdf->Line(10, 12, 200, 12);
-    $pdf->Ln(5);
-
-    // 2. Report Title Block
-    $pdf->SetTextColor($color_primary[0], $color_primary[1], $color_primary[2]);
-    if ($has_kantumruy) {
-        $pdf->SetFont('Kantumruy', '', 18);
-        $pdf->Cell(0, 12, "របាយការណ៍ហិរញ្ញវត្ថុប្រចាំប្រព័ន្ធ", 0, 1, 'C');
-    } else {
-        $pdf->SetFont('Arial', 'B', 16);
-        $pdf->Cell(0, 12, "Payment Tracker Financial Report", 0, 1, 'C');
-    }
-
-    // Subtitle Info
-    $pdf->SetTextColor(107, 114, 128); // Muted gray
-    if ($has_kantumruy) {
-        $pdf->SetFont('Kantumruy', '', 8.5);
-        $subtitle = "លេខរៀងទាញយក៖ No. " . $serial_str . " | កាលបរិច្ឆេទបញ្ចេញ៖ " . date('Y-m-d H:i:s') . " | រៀបចំដោយ៖ " . $username;
-        if (!empty($filter_date)) {
-            $subtitle .= " | ថ្ងៃដែលបានចម្រោះ៖ " . $filter_date;
-        }
-    } else {
-        $pdf->SetFont('Arial', 'I', 8.5);
-        $subtitle = "Export No: No. " . $serial_str . " | Date: " . date('Y-m-d H:i:s') . " | Exported by: " . $username;
-        if (!empty($filter_date)) {
-            $subtitle .= " | Filtered Date: " . $filter_date;
-        }
-    }
-    $pdf->Cell(0, 6, $subtitle, 0, 1, 'C');
-    $pdf->Ln(6);
-
-    // 3. FINANCIAL SUMMARY CARDS BLOCK
-    $pdf->SetDrawColor(226, 232, 240); // Card border
-    $pdf->SetLineWidth(0.3);
-
-    // Card 1: Balance Card
-    $pdf->SetFillColor(240, 253, 250); // Light emerald green bg
-    $pdf->Rect(10, 42, 60, 25, 'DF');
-    $pdf->SetXY(12, 44);
-    $pdf->SetTextColor(15, 118, 110); // Emerald text
-    $pdf->SetFont($has_kantumruy ? 'Kantumruy' : 'Arial', '', 9); // Use Regular to prevent 'Undefined font kantumruy B'
-    $pdf->Cell(56, 5, $has_kantumruy ? "សមតុល្យសរុប (Total Balance)" : "Total Balance", 0, 1);
-    $pdf->SetX(12);
-    $pdf->SetTextColor($bal_khr >= 0 ? 15 : $color_danger[0], $bal_khr >= 0 ? 118 : $color_danger[1], $bal_khr >= 0 ? 110 : $color_danger[2]);
-    $pdf->SetFont($has_kantumruy ? 'Kantumruy' : 'Arial', '', 9.5);
-    $pdf->Cell(56, 5, number_format($bal_khr) . $khr_symbol, 0, 1);
-    $pdf->SetX(12);
-    $pdf->Cell(56, 5, "$" . number_format($bal_usd, 2), 0, 1);
-
-    // Card 2: Income Card
-    $pdf->SetFillColor(240, 253, 244); // Light green bg
-    $pdf->Rect(75, 42, 60, 25, 'DF');
-    $pdf->SetXY(77, 44);
-    $pdf->SetTextColor(21, 128, 61); // Green text
-    $pdf->SetFont($has_kantumruy ? 'Kantumruy' : 'Arial', '', 9);
-    $pdf->Cell(56, 5, $has_kantumruy ? "ចំណូលសរុប (Total Income)" : "Total Income", 0, 1);
-    $pdf->SetX(77);
-    $pdf->SetFont($has_kantumruy ? 'Kantumruy' : 'Arial', '', 9.5);
-    $pdf->Cell(56, 5, number_format($total_income_khr) . $khr_symbol, 0, 1);
-    $pdf->SetX(77);
-    $pdf->Cell(56, 5, "$" . number_format($total_income_usd, 2), 0, 1);
-
-    // Card 3: Expense Card
-    $pdf->SetFillColor(254, 242, 242); // Light red bg
-    $pdf->Rect(140, 42, 60, 25, 'DF');
-    $pdf->SetXY(142, 44);
-    $pdf->SetTextColor(185, 28, 28); // Red text
-    $pdf->SetFont($has_kantumruy ? 'Kantumruy' : 'Arial', '', 9);
-    $pdf->Cell(56, 5, $has_kantumruy ? "ចំណាយសរុប (Total Expense)" : "Total Expense", 0, 1);
-    $pdf->SetX(142);
-    $pdf->SetFont($has_kantumruy ? 'Kantumruy' : 'Arial', '', 9.5);
-    $pdf->Cell(56, 5, number_format($total_expense_khr) . $khr_symbol, 0, 1);
-    $pdf->SetX(142);
-    $pdf->Cell(56, 5, "$" . number_format($total_expense_usd, 2), 0, 1);
-
-    $pdf->Ln(15);
-    $pdf->SetY(75);
-
-    // 4. TRANSACTION TABLE HEADERS
-    $pdf->SetFillColor($color_primary[0], $color_primary[1], $color_primary[2]);
-    $pdf->SetTextColor(255, 255, 255); // White text
-    $pdf->SetDrawColor(226, 232, 240); // Table grid line color
-    $pdf->SetLineWidth(0.15);
-    $pdf->SetFont($has_kantumruy ? 'Kantumruy' : 'Arial', '', 10);
-
-    // Setup widths (Total = 190)
-    $w_date = 35;
-    $w_desc = 50;
-    $w_user = 25;
-    $w_type = 20;
-    $w_khr  = 30;
-    $w_usd  = 30;
-
-    if ($has_kantumruy) {
-        $pdf->Cell($w_date, 10, 'កាលបរិច្ឆេទ', 1, 0, 'C', true);
-        $pdf->Cell($w_desc, 10, 'បរិយាយប្រតិបត្តិការ', 1, 0, 'L', true);
-        $pdf->Cell($w_user, 10, 'អ្នកបញ្ចូល', 1, 0, 'C', true);
-        $pdf->Cell($w_type, 10, 'ប្រភេទ', 1, 0, 'C', true);
-        $pdf->Cell($w_khr, 10, 'ចំនួនទឹកប្រាក់ (៛)', 1, 0, 'R', true);
-        $pdf->Cell($w_usd, 10, 'ចំនួនទឹកប្រាក់ ($)', 1, 1, 'R', true);
-    } else {
-        $pdf->Cell($w_date, 10, 'Date / Time', 1, 0, 'C', true);
-        $pdf->Cell($w_desc, 10, 'Description', 1, 0, 'L', true);
-        $pdf->Cell($w_user, 10, 'Created By', 1, 0, 'C', true);
-        $pdf->Cell($w_type, 10, 'Type', 1, 0, 'C', true);
-        $pdf->Cell($w_khr, 10, 'Amount (KHR)', 1, 0, 'R', true);
-        $pdf->Cell($w_usd, 10, 'Amount (USD)', 1, 1, 'R', true);
-    }
-
-    // 5. TABLE ROWS WITH ALTERNATING ZEBRA STRIPING
-    $fill = false;
-    $pdf->SetTextColor($color_text_dark[0], $color_text_dark[1], $color_text_dark[2]);
-    $pdf->SetFont($has_kantumruy ? 'Kantumruy' : 'Arial', '', 9);
-
-    foreach ($transactions as $row) {
-        if ($fill) {
-            $pdf->SetFillColor($color_bg_light[0], $color_bg_light[1], $color_bg_light[2]);
-        } else {
-            $pdf->SetFillColor(255, 255, 255);
-        }
-
-        // Cell 1: Date and Time
-        $pdf->Cell($w_date, 8, $row['date'], 1, 0, 'C', true);
-
-        // Cell 2: Description
-        $desc_text = $row['description'];
-        if (mb_strlen($desc_text, 'utf-8') > 22) {
-            $desc_text = mb_substr($desc_text, 0, 20, 'utf-8') . '...';
-        }
-        $pdf->Cell($w_desc, 8, $desc_text, 1, 0, 'L', true);
-
-        // Cell 3: Creator Username
-        $creator = $row['creator_name'] ?? ('ID: ' . $row['user_id']);
-        if (strlen($creator) > 12) {
-            $creator = substr($creator, 0, 10) . '..';
-        }
-        $pdf->Cell($w_user, 8, $creator, 1, 0, 'C', true);
-
-        // Cell 4: Type
-        if ($row['type'] === 'income') {
-            $pdf->SetTextColor($color_success[0], $color_success[1], $color_success[2]);
-            $pdf->Cell($w_type, 8, $has_kantumruy ? 'ចំណូល' : 'Income', 1, 0, 'C', true);
-        } else {
-            $pdf->SetTextColor($color_danger[0], $color_danger[1], $color_danger[2]);
-            $pdf->Cell($w_type, 8, $has_kantumruy ? 'ចំណាយ' : 'Expense', 1, 0, 'C', true);
-        }
-        $pdf->SetTextColor($color_text_dark[0], $color_text_dark[1], $color_text_dark[2]);
-
-        // Cell 5: Amount KHR
-        $khr_text = ($row['currency'] === 'KHR') ? number_format($row['amount']) . $khr_symbol : '-';
-        $pdf->Cell($w_khr, 8, $khr_text, 1, 0, 'R', true);
-
-        // Cell 6: Amount USD
-        $usd_text = ($row['currency'] === 'USD') ? '$' . number_format($row['amount'], 2) : '-';
-        $pdf->Cell($w_usd, 8, $usd_text, 1, 1, 'R', true);
-
-        $fill = !$fill;
-    }
-
-    // 6. Force Dynamic Download
-    header('Content-Type: application/pdf');
-    header('Content-Disposition: attachment; filename="' . $pdf_filename . '"');
-    $pdf->Output('D', $pdf_filename); // 'D' destination forces direct download in browser
-}
-?>
+header('Content-Type: text/html; charset=UTF-8');
+header('Cache-Control: no-store');
+?><!DOCTYPE html>
+<html lang="km">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/x-icon" href="icon.png">
+<title><?= h($report_name) ?></title>
+<style>
+@font-face { font-family: 'KantumruyLocal'; src: url('tfpdf/font/unifont/KantumruyPro-VariableFont_wght.ttf') format('truetype'); font-weight: 100 900; font-display: swap; }
+@page { size: A4; margin: 12mm; @bottom-center { content: counter(page) " / " counter(pages); font-size: 9px; color: #6b7280; } }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: 'KantumruyLocal', 'Kantumruy Pro', 'Khmer UI', 'Leelawadee UI', 'Noto Sans Khmer', 'Khmer OS', system-ui, sans-serif; color: #1f2937; background: #eef0f6; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.toolbar { position: sticky; top: 0; z-index: 5; display: flex; gap: 12px; align-items: center; justify-content: center; flex-wrap: wrap; padding: 12px; background: #171736; color: #fff; font-size: 14px; }
+.toolbar button { background: #4b4bf2; color: #fff; border: 0; border-radius: 12px; padding: 10px 20px; font: inherit; font-weight: 700; cursor: pointer; }
+.toolbar a { color: #c7c9ff; }
+.sheet { max-width: 210mm; margin: 18px auto; padding: 14mm 12mm; background: #fff; box-shadow: 0 10px 40px -18px rgba(0,0,0,.4); }
+.accent { height: 4px; background: #1e3a8a; border-radius: 4px; margin-bottom: 14px; }
+h1 { margin: 0 0 4px; text-align: center; color: #1e3a8a; font-size: 22px; }
+.sub { text-align: center; color: #6b7280; font-size: 11px; line-height: 1.7; margin-bottom: 14px; }
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+.card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; font-size: 12px; }
+.card b { display: block; font-size: 15px; margin-top: 4px; }
+.card.bal { background: #f0fdfa; color: #0f766e; } .card.inc { background: #f0fdf4; color: #15803d; } .card.exp { background: #fef2f2; color: #b91c1c; }
+table { width: 100%; border-collapse: collapse; font-size: 11px; }
+thead { display: table-header-group; }
+th { background: #1e3a8a; color: #fff; padding: 8px 6px; font-weight: 600; border: 1px solid #1e3a8a; }
+td { padding: 6px; border: 1px solid #e2e8f0; vertical-align: top; overflow-wrap: anywhere; }
+tr { break-inside: avoid; page-break-inside: avoid; } tbody tr:nth-child(even) td { background: #f8fafc; }
+.r { text-align: right; white-space: nowrap; } .c { text-align: center; } .nw { white-space: nowrap; }
+.inc-t { color: #10b981; font-weight: 700; } .exp-t { color: #ef4444; font-weight: 700; }
+.note { margin-top: 10px; font-size: 11px; color: #b45309; } .empty { text-align: center; padding: 30px; color: #6b7280; }
+@media print { body { background: #fff; } .no-print { display: none !important; } .sheet { margin: 0; padding: 0; box-shadow: none; max-width: none; } }
+</style>
+</head>
+<body>
+<div class="toolbar no-print">
+    <button type="button" onclick="window.print()">⬇ រក្សាទុកជា PDF</button>
+    <span>ក្នុងផ្ទាំងបោះពុម្ព ជ្រើស <b>Destination → Save as PDF</b></span>
+    <a href="index.php">← ត្រឡប់ទៅ Dashboard</a>
+</div>
+<div class="sheet">
+    <div class="accent"></div>
+    <h1>របាយការណ៍ហិរញ្ញវត្ថុប្រចាំប្រព័ន្ធ</h1>
+    <div class="sub">
+        លេខរៀងទាញយក៖ No. <?= h($serial_str) ?> &nbsp;|&nbsp; កាលបរិច្ឆេទបញ្ចេញ៖ <?= h(date('Y-m-d H:i:s')) ?> &nbsp;|&nbsp; រៀបចំដោយ៖ <?= h($username) ?><br>
+        វិសាលភាព៖ <?= h($scope) ?><?php if ($filter_date !== ''): ?> &nbsp;|&nbsp; រយៈពេលដែលបានចម្រោះ៖ <?= h($filter_date) ?><?php endif; ?> &nbsp;|&nbsp; ចំនួន៖ <?= count($transactions) ?> ប្រតិបត្តិការ
+    </div>
+    <div class="cards">
+        <div class="card bal">សមតុល្យសរុប (Total Balance)<b><?= number_format($bal_khr) . $riel ?></b><b>$<?= number_format($bal_usd, 2) ?></b></div>
+        <div class="card inc">ចំណូលសរុប (Total Income)<b><?= number_format($total_income_khr) . $riel ?></b><b>$<?= number_format($total_income_usd, 2) ?></b></div>
+        <div class="card exp">ចំណាយសរុប (Total Expense)<b><?= number_format($total_expense_khr) . $riel ?></b><b>$<?= number_format($total_expense_usd, 2) ?></b></div>
+    </div>
+    <table>
+        <thead><tr>
+            <th>កាលបរិច្ឆេទ</th><th>បរិយាយប្រតិបត្តិការ</th><th>ប្រភេទក្រុម</th><th>អ្នកបញ្ចូល</th><th>ប្រភេទ</th><th>ចំនួនទឹកប្រាក់ (៛)</th><th>ចំនួនទឹកប្រាក់ ($)</th>
+        </tr></thead>
+        <tbody>
+<?php if (!$transactions): ?>
+            <tr><td colspan="7" class="empty">មិនមានប្រតិបត្តិការក្នុងរយៈពេលនេះទេ។</td></tr>
+<?php endif; foreach ($transactions as $row): $inc = ($row['type'] === 'income'); ?>
+            <tr>
+                <td class="nw c"><?= h(substr($row['date'], 0, 16)) ?></td>
+                <td><?= h($row['description']) ?></td>
+                <td><?= h($row['category']) ?></td>
+                <td class="c"><?= h($row['creator_name'] ?? ('ID: ' . $row['user_id'])) ?></td>
+                <td class="c <?= $inc ? 'inc-t' : 'exp-t' ?>"><?= $inc ? 'ចំណូល' : 'ចំណាយ' ?></td>
+                <td class="r"><?= $row['currency'] === 'KHR' ? number_format((float)$row['amount']) . $riel : '-' ?></td>
+                <td class="r"><?= $row['currency'] === 'USD' ? '$' . number_format((float)$row['amount'], 2) : '-' ?></td>
+            </tr>
+<?php endforeach; ?>
+        </tbody>
+    </table>
+<?php if ($truncated): ?>
+    <div class="note">⚠ បង្ហាញត្រឹម ៥០០០ ប្រតិបត្តិការចុងក្រោយប៉ុណ្ណោះ។ សូមជ្រើសរយៈពេលតូចជាងនេះ ដើម្បីទទួលបានទិន្នន័យពេញលេញ។</div>
+<?php endif; ?>
+</div>
+<?php if ($autoprint): ?>
+<script>
+window.addEventListener('load', function () {
+    (document.fonts ? document.fonts.ready : Promise.resolve()).then(function () { setTimeout(function () { window.print(); }, 300); });
+});
+</script>
+<?php endif; ?>
+</body>
+</html>
