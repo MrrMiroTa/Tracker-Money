@@ -1,0 +1,6 @@
+# Block script execution in the uploads folder
+<IfModule mod_authz_core.c>
+  <FilesMatch "(?i)\.(php[0-9]?|phtml|phar|pl|py|cgi|sh)$">
+    Require all denied
+  </FilesMatch>
+</IfModule>

@@ -1,0 +1,17 @@
+{
+    "name": "mrrmirota/paymentinout",
+    "description": "Khmer Payment Tracker and Financial Management System with MFA, PDF, and CSV Export",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.0"
+    },
+    "config": {
+        "platform": {
+            "php": "8.3.0"
+        },
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "optimize-autoloader": true
+    }
+}
