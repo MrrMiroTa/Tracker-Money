@@ -8,7 +8,11 @@ const API_TRANSACTIONS_URL = 'api-transactions.php';
 
 // Global Chart Instances
 let incomeExpenseChart = null;
-let categoryDoughnutChart = null;
+const KHMER_MONTHS = ['មករា', 'កុម្ភៈ', 'មីនា', 'មេសា', 'ឧសភា', 'មិថុនា', 'កក្កដា', 'សីហា', 'កញ្ញា', 'តុលា', 'វិច្ឆិកា', 'ធ្នូ'];
+function currentMonthStr() { const n = new Date(); return n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0'); }
+// Default = THIS month. A link like index.php?month=2026-09 opens that month instead.
+let dashboardMonth = (function () { const m = new URLSearchParams(location.search).get('month'); return /^\d{4}-(0[1-9]|1[0-2])$/.test(m || '') ? m : currentMonthStr(); })();
+function decodeEntities(s) { const t = document.createElement('textarea'); t.innerHTML = String(s == null ? '' : s); return t.value; } // old rows were HTML-encoded on save
 
 // Global Exchange Rate State (Default 1 USD = 4,100 KHR)
 let currentUsdKhrRate = parseFloat(localStorage.getItem('usd_khr_rate')) || 4100;
@@ -547,39 +551,32 @@ function triggerDelete(id) {
  */
 async function loadDashboardMetricsAndCharts() {
     try {
-        const response = await fetch(`${API_TRANSACTIONS_URL}?action=list_all`);
+        const response = await fetch(`${API_TRANSACTIONS_URL}?action=dashboard_summary&month=${encodeURIComponent(dashboardMonth)}`);
         if (!response.ok) return;
+        const r = await response.json();
+        if (r.status !== 'success') return;
 
-        const result = await response.json();
-        if (result.status === 'success' && Array.isArray(result.data)) {
-            const transactions = result.data.filter(t => !t.is_deleted);
-            
-            calculateMetricsAndUnifiedBalance(transactions);
-            checkCategoryBudgetAlerts(transactions);
-            renderAnalyticsCharts(transactions);
-        }
+        // Expense per category for the chosen month, everything converted to USD
+        const spentByCategory = {};
+        (r.categories || []).forEach(c => {
+            const name = decodeEntities(c.category).trim() || 'ផ្សេងៗ';
+            const usd = (c.currency === 'USD') ? c.total : c.total / currentUsdKhrRate;
+            spentByCategory[name] = (spentByCategory[name] || 0) + usd;
+        });
+
+        calculateMetricsAndUnifiedBalance(r.totals);   // KPI cards stay ALL-TIME totals
+        checkCategoryBudgetAlerts(spentByCategory);    // monthly budgets vs the chosen month
+        renderIncomeVsExpenseChart(r.month_totals);
+        renderCategoryList(spentByCategory);
+        syncMonthControls(r.first_year);
     } catch (err) {
         console.error("Failed to load dashboard metrics and charts:", err);
     }
 }
 
-function calculateMetricsAndUnifiedBalance(transactions) {
-    let incUsd = 0, incKhr = 0;
-    let expUsd = 0, expKhr = 0;
-
-    transactions.forEach(t => {
-        const amt = parseFloat(t.raw_amount || t.amount) || 0;
-        const type = (t.raw_type || t.type || '').toLowerCase();
-        const curr = (t.raw_currency || t.currency || '').toUpperCase();
-
-        if (type === 'income') {
-            if (curr === 'USD') incUsd += amt;
-            else incKhr += amt;
-        } else if (type === 'expense') {
-            if (curr === 'USD') expUsd += amt;
-            else expKhr += amt;
-        }
-    });
+function calculateMetricsAndUnifiedBalance(totals) {
+    const incUsd = totals.income_usd, incKhr = totals.income_khr;
+    const expUsd = totals.expense_usd, expKhr = totals.expense_khr;
 
     const balUsd = incUsd - expUsd;
     const balKhr = incKhr - expKhr;
@@ -603,24 +600,11 @@ function updateMetricElement(id, text) {
     if (el) el.innerText = text;
 }
 
-function checkCategoryBudgetAlerts(transactions) {
+function checkCategoryBudgetAlerts(categoryTotalsUSD) {
     const container = document.getElementById('budget-alerts-container');
     if (!container) return;
 
     container.innerHTML = '';
-    const categoryTotalsUSD = {};
-
-    transactions.forEach(t => {
-        const type = (t.raw_type || t.type || '').toLowerCase();
-        if (type === 'expense') {
-            const cat = (t.category || '').trim();
-            const amt = parseFloat(t.raw_amount || t.amount) || 0;
-            const curr = (t.raw_currency || t.currency || '').toUpperCase();
-            const amtUsd = (curr === 'USD') ? amt : (amt / currentUsdKhrRate);
-
-            categoryTotalsUSD[cat] = (categoryTotalsUSD[cat] || 0) + amtUsd;
-        }
-    });
 
     let hasAlerts = false;
 
@@ -658,28 +642,12 @@ function checkCategoryBudgetAlerts(transactions) {
 /**
  * Render Analytics Charts (Chart.js)
  */
-function renderAnalyticsCharts(transactions) {
-    if (typeof Chart === 'undefined') return;
-
-    renderIncomeVsExpenseChart(transactions);
-    renderCategoryDoughnutChart(transactions);
-}
-
-function renderIncomeVsExpenseChart(transactions) {
+function renderIncomeVsExpenseChart(monthTotals) {
     const canvas = document.getElementById('chart-income-expense');
-    if (!canvas) return;
+    if (!canvas || typeof Chart === 'undefined') return;
 
-    let incUsd = 0, expUsd = 0;
-
-    transactions.forEach(t => {
-        const amt = parseFloat(t.raw_amount || t.amount) || 0;
-        const type = (t.raw_type || t.type || '').toLowerCase();
-        const curr = (t.raw_currency || t.currency || '').toUpperCase();
-        const amtUsd = (curr === 'USD') ? amt : (amt / currentUsdKhrRate);
-
-        if (type === 'income') incUsd += amtUsd;
-        else if (type === 'expense') expUsd += amtUsd;
-    });
+    const incUsd = monthTotals.income_usd + monthTotals.income_khr / currentUsdKhrRate;
+    const expUsd = monthTotals.expense_usd + monthTotals.expense_khr / currentUsdKhrRate;
 
     if (incomeExpenseChart) incomeExpenseChart.destroy();
 
@@ -714,83 +682,83 @@ function renderIncomeVsExpenseChart(transactions) {
     });
 }
 
-function renderCategoryDoughnutChart(transactions) {
-    const canvas = document.getElementById('chart-category-doughnut');
-    if (!canvas) return;
+const CATEGORY_COLORS = ['#4b4bf2', '#ff7a3d', '#16a34a', '#ef4444', '#8b5cf6', '#06b6d4', '#f59e0b', '#ec4899', '#64748b'];
 
-    const catTotals = {};
-    let totalExpenseUSD = 0;
+function mk(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
 
-    transactions.forEach(t => {
-        const type = (t.raw_type || t.type || '').toLowerCase();
-        if (type === 'expense') {
-            const cat = (t.category || '').trim() || 'ផ្សេងៗ';
-            const amt = parseFloat(t.raw_amount || t.amount) || 0;
-            const curr = (t.raw_currency || t.currency || '').toUpperCase();
-            const amtUsd = (curr === 'USD') ? amt : (amt / currentUsdKhrRate);
+/** Expense categories as a ranked list: name, amount, share %, bar. Built with textContent (no HTML injection). */
+function renderCategoryList(totals) {
+    const box = document.getElementById('category-list');
+    if (!box) return;
+    const rows = Object.entries(totals).sort((x, y) => y[1] - x[1]);
+    const sum = rows.reduce((s, r) => s + r[1], 0);
+    const totalEl = document.getElementById('category-total');
+    if (totalEl) totalEl.textContent = '$' + sum.toFixed(2);
+    box.replaceChildren();
 
-            catTotals[cat] = (catTotals[cat] || 0) + amtUsd;
-            totalExpenseUSD += amtUsd;
-        }
-    });
+    if (!rows.length) { box.appendChild(mk('div', 'cat-empty', 'មិនមានការចំណាយក្នុងខែនេះទេ។')); return; }
 
-    const labels = Object.keys(catTotals);
-    let dataValues = Object.values(catTotals).map(v => v.toFixed(2));
-    let colors = ['#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#64748b'];
+    rows.forEach(([name, value], i) => {
+        const pct = sum > 0 ? (value / sum) * 100 : 0;
+        const color = CATEGORY_COLORS[i % CATEGORY_COLORS.length];
+        const row = mk('div', 'cat-row');
 
-    if (categoryDoughnutChart) categoryDoughnutChart.destroy();
+        const top = mk('div', 'cat-top');
+        const left = mk('span', 'cat-name');
+        const dot = mk('i', 'cat-dot'); dot.style.background = color;
+        left.append(dot, mk('span', '', name));
+        const right = mk('span', 'cat-amount');
+        right.append(mk('strong', '', '$' + value.toFixed(2)), mk('small', '', pct.toFixed(0) + '%'));
+        top.append(left, right);
 
-    const isDarkMode = document.body.classList.contains('dark-mode');
-    const textColor = isDarkMode ? '#f8fafc' : '#1e293b';
+        const bar = mk('div', 'cat-bar');
+        const fill = mk('div', 'cat-fill'); fill.style.width = Math.max(pct, 2) + '%'; fill.style.background = color;
+        bar.appendChild(fill);
 
-    const centerTextPlugin = {
-        id: 'centerText',
-        beforeDraw: function(chart) {
-            if (!chart.chartArea) return;
-            const { ctx } = chart;
-            ctx.save();
-            ctx.textBaseline = 'middle';
-            ctx.textAlign = 'center';
-            ctx.fillStyle = textColor;
-
-            const totalText = totalExpenseUSD > 0 ? `$${totalExpenseUSD.toFixed(2)}` : '$0.00';
-            const labelText = 'ចំណាយសរុប';
-
-            const centerX = (chart.chartArea.left + chart.chartArea.right) / 2;
-            const centerY = (chart.chartArea.top + chart.chartArea.bottom) / 2;
-
-            ctx.font = `bold 16px 'Kantumruy Pro', sans-serif`;
-            ctx.fillText(totalText, centerX, centerY - 6);
-
-            ctx.font = `500 12px 'Kantumruy Pro', sans-serif`;
-            ctx.fillStyle = isDarkMode ? '#94a3b8' : '#64748b';
-            ctx.fillText(labelText, centerX, centerY + 14);
-
-            ctx.restore();
-        }
-    };
-
-    const ctx = canvas.getContext('2d');
-    categoryDoughnutChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: labels.length > 0 ? labels : ['គ្មានទិន្នន័យចំណាយ'],
-            datasets: [{
-                data: labels.length > 0 ? dataValues : [1],
-                backgroundColor: labels.length > 0 ? colors.slice(0, labels.length) : [isDarkMode ? '#334155' : '#e2e8f0']
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '70%',
-            plugins: {
-                legend: { position: 'bottom', labels: { color: textColor, font: { family: "'Kantumruy Pro', sans-serif" } } }
-            }
-        },
-        plugins: [centerTextPlugin]
+        row.append(top, bar);
+        box.appendChild(row);
     });
 }
+
+/** Month picker: ‹ [month] [year] › [this month]. Works in every browser (no <input type=month>). */
+function syncMonthControls(firstYear) {
+    const mSel = document.getElementById('mf-month'), ySel = document.getElementById('mf-year');
+    if (!mSel || !ySel) return;
+    const [y, m] = dashboardMonth.split('-').map(Number);
+    const thisYear = new Date().getFullYear();
+    const from = Math.min(firstYear || thisYear, y), to = Math.max(thisYear, y);
+    if (ySel.options.length !== to - from + 1 || +ySel.options[0].value !== to) {
+        ySel.replaceChildren();
+        for (let yy = to; yy >= from; yy--) { const o = mk('option', '', String(yy)); o.value = yy; ySel.appendChild(o); }
+    }
+    if (!mSel.options.length) KHMER_MONTHS.forEach((n, i) => { const o = mk('option', '', n); o.value = i + 1; mSel.appendChild(o); });
+    mSel.value = m; ySel.value = y;
+    const label = 'ខែ' + KHMER_MONTHS[m - 1] + ' ' + y;
+    document.querySelectorAll('.js-month-label').forEach(e => { e.textContent = label; });
+    const isNow = dashboardMonth === currentMonthStr();
+    const todayBtn = document.getElementById('mf-today'); if (todayBtn) todayBtn.disabled = isNow;
+    const next = document.getElementById('mf-next'); if (next) next.disabled = isNow; // no future months
+}
+
+function setDashboardMonth(ym) {
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(ym) || ym > currentMonthStr()) return;
+    dashboardMonth = ym;
+    loadDashboardMetricsAndCharts();
+}
+function shiftDashboardMonth(delta) {
+    const [y, m] = dashboardMonth.split('-').map(Number);
+    const d = new Date(y, m - 1 + delta, 1);
+    setDashboardMonth(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'));
+}
+document.addEventListener('DOMContentLoaded', () => {
+    syncMonthControls();
+    const on = (id, fn) => { const e = document.getElementById(id); if (e) e.addEventListener('click', fn); };
+    on('mf-prev', () => shiftDashboardMonth(-1));
+    on('mf-next', () => shiftDashboardMonth(1));
+    on('mf-today', () => setDashboardMonth(currentMonthStr()));
+    const pick = () => setDashboardMonth(document.getElementById('mf-year').value + '-' + String(document.getElementById('mf-month').value).padStart(2, '0'));
+    ['mf-month', 'mf-year'].forEach(id => { const e = document.getElementById(id); if (e) e.addEventListener('change', pick); });
+});
 
 /**
  * Load Transactions Table

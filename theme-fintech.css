@@ -90,3 +90,36 @@ body.dark-mode .metric-card .currency-value { color: #fff !important; }
 body.dark-mode .metric-header h3, body.dark-mode .metric-card .currency-label { color: #94a3b8 !important; }
 
 .exchange-rate-widget input { background: #fff !important; color: var(--navy) !important; font-weight: 700; }
+
+/* ---- Month filter bar (charts + budget) ---- */
+.month-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 14px; padding: 10px 14px; border-radius: 20px; background: #fff; box-shadow: var(--shadow-card); }
+.month-filter .mf-title { font-weight: 700; color: var(--navy); margin-right: auto; font-size: .92rem; }
+.month-filter button { min-width: 38px; height: 38px; padding: 0 14px; border: 1px solid var(--gray-border); border-radius: 12px; background: #fff; color: var(--navy); font-weight: 800; font-size: 1.1rem; cursor: pointer; transition: var(--transition); }
+.month-filter button:hover:not(:disabled) { background: var(--primary-light); color: var(--primary); }
+.month-filter button:disabled { opacity: .4; cursor: not-allowed; }
+.month-filter .mf-today { font-size: .85rem; background: var(--navy); color: #fff; border-color: var(--navy); }
+.month-filter .mf-today:hover:not(:disabled) { background: #2a2a55; color: #fff; }
+.month-filter select { height: 38px; padding: 0 12px; font-weight: 700; color: var(--navy); }
+.chart-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.month-pill { font-style: normal; font-size: .75rem; font-weight: 700; padding: 3px 10px; margin-left: 6px; border-radius: 999px; background: var(--primary-light); color: var(--primary); white-space: nowrap; }
+.cat-total { color: var(--navy); font-size: 1.15rem; }
+
+/* ---- Expense categories as a ranked list ---- */
+.cat-list-wrap { max-height: 340px; overflow-y: auto; padding: 4px 4px 4px 0; }
+.cat-row { padding: 11px 0; border-bottom: 1px solid var(--gray-border); }
+.cat-row:last-child { border-bottom: 0; }
+.cat-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 7px; }
+.cat-name { display: flex; align-items: center; gap: 9px; font-weight: 600; color: var(--navy); overflow-wrap: anywhere; }
+.cat-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.cat-amount { display: flex; align-items: baseline; gap: 8px; white-space: nowrap; }
+.cat-amount strong { color: var(--navy); }
+.cat-amount small { color: var(--gray-text); font-weight: 700; min-width: 34px; text-align: right; }
+.cat-bar { height: 8px; border-radius: 99px; background: #eef0f8; overflow: hidden; }
+.cat-fill { height: 100%; border-radius: 99px; transition: width .5s ease; }
+.cat-empty { text-align: center; padding: 40px 10px; color: var(--gray-text); }
+body.dark-mode .month-filter { background: #1e293b; }
+body.dark-mode .month-filter .mf-title, body.dark-mode .cat-name, body.dark-mode .cat-amount strong, body.dark-mode .cat-total { color: #f1f5f9; }
+body.dark-mode .month-filter button { background: #334155; color: #f1f5f9; border-color: #475569; }
+body.dark-mode .cat-bar { background: #334155; } body.dark-mode .cat-row { border-color: #334155; }
+.cat-total { margin-left: auto; }
+@media (max-width: 600px) { .month-filter .mf-title { flex-basis: 100%; margin-right: 0; } }

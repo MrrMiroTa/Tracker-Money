@@ -357,6 +357,63 @@ switch ($method) {
         }
 
         // --- Action: list_all ---
+        // Dashboard numbers for ONE month, computed in SQL (fast; no need to ship every transaction to the browser)
+        if ($action === 'dashboard_summary') {
+            $month = $_GET['month'] ?? date('Y-m');
+            if (!is_string($month) || !preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $month)) {
+                http_response_code(400);
+                echo json_encode(["status" => "error", "message" => "Invalid month (use YYYY-MM)"]);
+                exit;
+            }
+            $start = $month . '-01 00:00:00';
+            $end   = (new DateTime($month . '-01'))->modify('+1 month')->format('Y-m-d 00:00:00');
+
+            $scope = '';
+            $scopeParams = [];
+            if ($current_role !== 'super_admin' && $current_role !== 'admin') {
+                $scope = ' AND t.user_id = :uid';
+                $scopeParams[':uid'] = $current_user_id;
+            }
+
+            try {
+                $totals = function (string $extra, array $p) use ($db, $scope, $scopeParams) {
+                    $st = $db->prepare("SELECT t.type, t.currency, SUM(t.amount) AS total FROM transactions t
+                                        WHERE t.is_deleted = 0 {$scope} {$extra} GROUP BY t.type, t.currency");
+                    $st->execute($scopeParams + $p);
+                    $o = ['income_usd' => 0.0, 'income_khr' => 0.0, 'expense_usd' => 0.0, 'expense_khr' => 0.0];
+                    foreach ($st->fetchAll() as $r) {
+                        $o[$r['type'] . '_' . strtolower($r['currency'])] = (float)$r['total'];
+                    }
+                    return $o;
+                };
+                $range = ' AND t.date >= :s AND t.date < :e';
+                $rp = [':s' => $start, ':e' => $end];
+
+                $cat = $db->prepare("SELECT t.category, t.currency, SUM(t.amount) AS total FROM transactions t
+                                     WHERE t.is_deleted = 0 AND t.type = 'expense' {$scope} {$range}
+                                     GROUP BY t.category, t.currency");
+                $cat->execute($scopeParams + $rp);
+
+                $first = $db->prepare("SELECT MIN(t.date) FROM transactions t WHERE t.is_deleted = 0 {$scope}");
+                $first->execute($scopeParams);
+                $firstDate = $first->fetchColumn();
+
+                echo json_encode([
+                    "status"       => "success",
+                    "month"        => $month,
+                    "first_year"   => $firstDate ? (int)substr($firstDate, 0, 4) : (int)date('Y'),
+                    "totals"       => $totals('', []),          // all time (the three KPI cards)
+                    "month_totals" => $totals($range, $rp),     // chosen month only
+                    "categories"   => array_map(fn($r) => ['category' => $r['category'], 'currency' => $r['currency'], 'total' => (float)$r['total']], $cat->fetchAll()),
+                ]);
+            } catch (PDOException $e) {
+                error_log("dashboard_summary error: " . $e->getMessage());
+                http_response_code(500);
+                echo json_encode(["status" => "error", "message" => "មានបញ្ហាបច្ចេកទេសក្នុងការទាញយកទិន្នន័យ។"]);
+            }
+            exit;
+        }
+
         if ($action === 'list_all') {
             $whereClause = " WHERE t.is_deleted = 0";
             $queryParams = [];

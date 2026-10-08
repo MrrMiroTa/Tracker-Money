@@ -167,11 +167,19 @@ $categories = ['Breakfast','Lunch','Dinner','Party','Home','Room','Electric','Co
         <div id="budget-alerts-container" class="budget-alerts-container"></div>
 
         <!-- 4. Visual Analytics Section (Chart.js Section) -->
+        <div class="month-filter" id="month-filter">
+            <span class="mf-title">📅 ទិន្នន័យក្រាហ្វិក និងថវិកាប្រចាំខែ៖</span>
+            <button type="button" id="mf-prev" aria-label="ខែមុន">‹</button>
+            <select id="mf-month" aria-label="ខែ"></select>
+            <select id="mf-year" aria-label="ឆ្នាំ"></select>
+            <button type="button" id="mf-next" aria-label="ខែបន្ទាប់">›</button>
+            <button type="button" id="mf-today" class="mf-today">ខែនេះ</button>
+        </div>
         <div class="charts-grid">
             <!-- ក្រាហ្វិកប្រៀបធៀបចំណូល-ចំណាយ -->
             <div class="chart-card">
                 <div class="chart-header">
-                    <span>📊 ក្រាហ្វិកប្រៀបធៀបចំណូល និងចំណាយ ($ USD)</span>
+                    <span>📊 ក្រាហ្វិកប្រៀបធៀបចំណូល និងចំណាយ ($ USD) <em class="month-pill js-month-label"></em></span>
                 </div>
                 <div class="chart-container">
                     <canvas id="chart-income-expense"></canvas>
@@ -181,11 +189,10 @@ $categories = ['Breakfast','Lunch','Dinner','Party','Home','Room','Electric','Co
             <!-- ក្រាហ្វិកចំណាយតាមប្រភេទក្រុម -->
             <div class="chart-card">
                 <div class="chart-header">
-                    <span>🍩 ចំណាយតាមប្រភេទក្រុម (Expense Categories)</span>
+                    <span>🧾 ចំណាយតាមប្រភេទក្រុម (Expense Categories) <em class="month-pill js-month-label"></em></span>
+                    <strong id="category-total" class="cat-total">$0.00</strong>
                 </div>
-                <div class="chart-container">
-                    <canvas id="chart-category-doughnut"></canvas>
-                </div>
+                <div class="cat-list-wrap"><div id="category-list" class="cat-list"></div></div>
             </div>
         </div>
 
